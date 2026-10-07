@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
 @theme {
   --font-display: var(--font-primary, var(--font-fraunces)), Georgia, serif;
   --font-sans: var(--font-secondary, var(--font-manrope)), system-ui, sans-serif;
@@ -25,14 +27,14 @@
 :root {
   --color-primary: #1F3D34;
   --color-secondary: #B8935A;
-  --color-bg-base: #FAF7F2;
+  --color-bg-base: #FFFFFF;
 
-  --color-bone: var(--color-bg-base);
-  --color-cream: #F4EFE6;
-  --color-sand: #E8DFD1;
-  --color-line: #E2DACB;
-  --color-ink: #151613;
-  --color-ink-soft: #4F5047;
+  --color-bone: #FFFFFF;
+  --color-cream: #F9FAFB;
+  --color-sand: #F3F4F6;
+  --color-line: #E5E7EB;
+  --color-ink: #111827;
+  --color-ink-soft: #4B5563;
   --color-forest: var(--color-primary);
   --color-forest-deep: #12241E;
   --color-clay: #C4704F;
@@ -49,12 +51,12 @@
 
 [data-theme="dark"],
 .dark {
-  --color-bone: #0B0F0D;
-  --color-cream: #121815;
-  --color-sand: #1A2420;
-  --color-line: #22302A;
-  --color-ink: #F4F1EA;
-  --color-ink-soft: #9BA7A1;
+  --color-bone: #030712;
+  --color-cream: #111827;
+  --color-sand: #1F2937;
+  --color-line: #1F2937;
+  --color-ink: #F9FAFB;
+  --color-ink-soft: #9CA3AF;
   --color-forest: #2B5749;
   --color-forest-deep: #070B09;
   --color-clay: #D87D59;
@@ -173,6 +175,33 @@
     display: flex;
     width: max-content;
     animation: marquee 35s linear infinite;
+  }
+
+  /* Hide scrollbar for clean horizontal scroll containers */
+  .hide-scrollbar,
+  .scrollbar-none {
+    -ms-overflow-style: none;  /* IE/Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+  .hide-scrollbar::-webkit-scrollbar,
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;             /* Chrome/Safari/Opera */
+  }
+
+  /* Thin scrollbar variant (used on team carousel) */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--color-line);
+    border-radius: 9999px;
   }
 }
 

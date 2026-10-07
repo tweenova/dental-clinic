@@ -21,9 +21,9 @@ export function Card({
   ...props
 }: CardProps) {
   const surfaceStyles = {
-    bone: "bg-bone border-line",
-    cream: "bg-cream/60 border-line/80",
-    sand: "bg-sand/40 border-line",
+    bone: "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white",
+    cream: "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white",
+    sand: "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white",
   };
 
   const shadowStyles = {
@@ -40,7 +40,7 @@ export function Card({
         "rounded-[var(--radius-card)] border transition-all duration-200",
         surfaceStyles[surface],
         shadowStyles[shadow],
-        hoverLift && "hover:-translate-y-1 hover:shadow-card hover:border-forest/30",
+        hoverLift && "hover:-translate-y-1 hover:shadow-card hover:border-primary/40",
         className
       )}
       {...props}

@@ -23,7 +23,7 @@ export function Commitments() {
       icon: UserCheck,
       title: "Direct Clinician Continuity",
       subtitle: "Dedicated doctor care without handoffs",
-      description: `${director.displayName || "Our lead clinician"} and our team personally conduct your examination, explain diagnostic imaging chairside, and complete your restorative treatment. You never have to wonder which practitioner is overseeing your dental health.`,
+      description: `${director?.displayName || "Our lead clinician"} and our team personally conduct your examination, explain diagnostic imaging chairside, and complete your restorative treatment. You never have to wonder which practitioner is overseeing your dental health.`,
     },
     {
       num: "02",
@@ -43,7 +43,7 @@ export function Commitments() {
   ];
 
   return (
-    <section id="commitments" className="border-t border-line bg-cream/40 py-20 md:py-28">
+    <section id="commitments" className="border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 py-20 md:py-28">
       <div className="container-x">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 items-start">
           {/* Section Introduction - 4 cols */}
@@ -83,20 +83,20 @@ export function Commitments() {
                 >
                   <Card surface="bone" shadow="card" className="p-6 sm:p-7">
                     <div className="flex items-start gap-5">
-                      <div className="hidden sm:flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-forest/10 text-forest">
+                      <div className="hidden sm:flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <Icon className="h-5 w-5" />
                       </div>
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-3">
-                          <span className="font-mono text-xs font-semibold text-clay">
+                          <span className="font-mono text-xs font-semibold text-primary">
                             {c.num}
                           </span>
-                          <h3 className="font-display text-lg text-ink font-normal">
+                          <h3 className="font-display text-lg text-gray-900 dark:text-white font-normal">
                             {c.title}
                           </h3>
                         </div>
-                        <p className="text-xs font-medium text-forest">{c.subtitle}</p>
-                        <p className="text-xs sm:text-[13px] leading-relaxed text-ink-soft pt-1">
+                        <p className="text-xs font-medium text-primary">{c.subtitle}</p>
+                        <p className="text-xs sm:text-[13px] leading-relaxed text-gray-600 dark:text-gray-400 pt-1">
                           {c.description}
                         </p>
                       </div>

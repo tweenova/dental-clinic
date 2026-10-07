@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Inactivity tracking state
-  const lastActivityRef = useRef<number>(Date.now());
+  const lastActivityRef = useRef<number>(0);
   const [warningSecondsLeft, setWarningSecondsLeft] = useState<number | null>(null);
 
   const resetActivity = useCallback(() => {
@@ -143,8 +143,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Inactivity countdown evaluation timer (checks every second)
   useEffect(() => {
     if (!user || user.inactivityEnabled === false) {
-      setWarningSecondsLeft(null);
       return;
+    }
+
+    if (lastActivityRef.current === 0) {
+      lastActivityRef.current = Date.now();
     }
 
     const timeoutMinutes = user.inactivityTimeoutMinutes ?? 15;
@@ -167,7 +170,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      setWarningSecondsLeft(null);
+    };
   }, [user, logout]);
 
   const login = async (email: string, password: string) => {

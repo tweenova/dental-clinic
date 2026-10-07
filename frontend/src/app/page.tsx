@@ -20,7 +20,7 @@ export default function Home() {
     <>
       <ScrollProgress />
       <SiteHeader />
-      <main id="main-content">
+      <main id="main-content" className="bg-white dark:bg-gray-950">
         <Hero />
         <Commitments />
         <Services />

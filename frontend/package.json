@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "node seed.js"
   },
   "dependencies": {
     "lucide-react": "^1.48.0",

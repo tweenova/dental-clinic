@@ -127,25 +127,36 @@ export default function AdminSettingsPage() {
       );
       setOrg(updated);
       if (typeof document !== "undefined") {
-        const root = document.documentElement;
-        if (primaryColor.trim()) {
-          root.style.setProperty("--color-primary", primaryColor.trim());
-          root.style.setProperty("--color-forest", primaryColor.trim());
+        let styleTag = document.getElementById("org-brand-theme") as HTMLStyleElement | null;
+        if (!styleTag) {
+          styleTag = document.createElement("style");
+          styleTag.id = "org-brand-theme";
+          document.head.appendChild(styleTag);
         }
-        if (secondaryColor.trim()) {
-          root.style.setProperty("--color-secondary", secondaryColor.trim());
-          root.style.setProperty("--color-gold", secondaryColor.trim());
+        let css = "";
+        const p = primaryColor.trim();
+        const s = secondaryColor.trim();
+        const bg = backgroundColor.trim();
+        const pf = primaryFont.trim();
+        const sf = secondaryFont.trim();
+
+        if (p || s || bg || pf || sf) {
+          css += `:root:not(.dark) {`;
+          if (p) css += `--color-primary: ${p}; --color-forest: ${p};`;
+          if (s) css += `--color-secondary: ${s}; --color-gold: ${s};`;
+          if (bg) css += `--color-bg-base: ${bg};`;
+          if (pf) css += `--font-primary: '${pf}', Georgia, serif;`;
+          if (sf) css += `--font-secondary: '${sf}', system-ui, sans-serif;`;
+          css += `}\n`;
+
+          css += `.dark {`;
+          if (p) css += `--color-primary: ${p};`;
+          if (s) css += `--color-secondary: ${s};`;
+          if (pf) css += `--font-primary: '${pf}', Georgia, serif;`;
+          if (sf) css += `--font-secondary: '${sf}', system-ui, sans-serif;`;
+          css += `}\n`;
         }
-        if (backgroundColor.trim()) {
-          root.style.setProperty("--color-bg-base", backgroundColor.trim());
-          root.style.setProperty("--color-bone", backgroundColor.trim());
-        }
-        if (primaryFont.trim()) {
-          root.style.setProperty("--font-primary", primaryFont.trim());
-        }
-        if (secondaryFont.trim()) {
-          root.style.setProperty("--font-secondary", secondaryFont.trim());
-        }
+        styleTag.textContent = css;
       }
       setThemingSuccess(true);
       setTimeout(() => setThemingSuccess(false), 3000);

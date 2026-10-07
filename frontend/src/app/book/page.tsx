@@ -14,15 +14,6 @@ import { getStoredUtmParams } from "@/lib/utm";
 import { submitBookingRequest, BookingPayload, getServices } from "@/lib/api";
 import { usePublicContent } from "@/components/providers/public-content-provider";
 
-const DEFAULT_SERVICES_OPTIONS = [
-  { id: "cleanings-exams", label: "Cleaning & Comprehensive Exam", meta: "45 to 60 min · cash from $140" },
-  { id: "fillings-crowns", label: "Tooth-Colored Filling or Crown", meta: "60 to 90 min · cash from $210" },
-  { id: "root-canals", label: "Endodontic Root Canal Therapy", meta: "75 to 90 min · cash from $680" },
-  { id: "invisalign", label: "Invisalign Aligner Consultation", meta: "30 to 45 min · preliminary scan" },
-  { id: "whitening", label: "Professional Enamel Whitening", meta: "Single visit or custom kit · $280" },
-  { id: "emergency", label: "Acute Pain / Dental Emergency", meta: "Held triage slots · cash from $95" },
-];
-
 const TIME_SLOTS = ["8:30 AM", "10:00 AM", "11:30 AM", "1:30 PM", "3:00 PM", "4:30 PM"];
 
 type WizardStep = 0 | 1 | 2 | 3;
@@ -50,7 +41,7 @@ function BookingWizard() {
   const initialStep = urlStepParam ? (Math.min(3, Math.max(0, parseInt(urlStepParam, 10))) as WizardStep) : 0;
   const preselectedService = searchParams.get("service");
 
-  const [servicesOptions, setServicesOptions] = useState(DEFAULT_SERVICES_OPTIONS);
+  const [servicesOptions, setServicesOptions] = useState<Array<{ id: string; label: string; meta: string }>>([]);
   const [step, setStep] = useState<WizardStep>(initialStep);
   const [service, setService] = useState<string>(preselectedService || "cleanings-exams");
   const [date, setDate] = useState<string>("");
@@ -73,7 +64,7 @@ function BookingWizard() {
         }
       })
       .catch(() => {
-        // Fallback remains
+        setServicesOptions([]);
       });
   }, []);
 
@@ -215,7 +206,7 @@ function BookingWizard() {
   const todayIso = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="min-h-screen bg-bone flex flex-col justify-between">
+    <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col justify-between">
       {/* Reused SiteHeader with minimal variant */}
       <SiteHeader variant="minimal" />
 

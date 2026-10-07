@@ -27,10 +27,10 @@ export function FloatingAction() {
       role="complementary"
       aria-label="Direct clinic contact actions"
     >
-      <div className="flex items-center gap-2 rounded-xl border border-line bg-bone/95 p-1.5 backdrop-blur-md elevation-2 transition-all hover:elevation-3">
+      <div className="flex items-center gap-2 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 p-1.5 backdrop-blur-md shadow-lg transition-all">
         <a
           href={`tel:${cleanPhone}`}
-          className="flex items-center gap-2 rounded-lg bg-cream/80 px-3 py-2 text-xs font-medium text-ink transition-colors hover:bg-forest hover:text-bone"
+          className="flex items-center gap-2 rounded-xl bg-gray-50 dark:bg-gray-800 px-3 py-2 text-xs font-medium text-gray-900 dark:text-white transition-colors hover:bg-primary hover:text-white dark:hover:bg-primary cursor-pointer"
           title="Direct dental line"
         >
           <span className="relative flex h-2 w-2">
@@ -49,7 +49,7 @@ export function FloatingAction() {
 
         <Link
           href="/book"
-          className="flex items-center gap-1.5 rounded-lg bg-forest px-3 py-2 text-xs font-medium text-[#FAF7F2] transition-colors hover:bg-forest-deep"
+          className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-white transition-colors hover:brightness-110 shadow-xs"
         >
           <Calendar className="h-3.5 w-3.5" />
           <span>Book Visit</span>

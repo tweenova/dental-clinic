@@ -3,63 +3,67 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { usePublicContent } from "@/components/providers/public-content-provider";
-import { getOfficeStatus, OfficeStatus } from "@/lib/utils";
+import { fetchPublicAnnouncements, Announcement } from "@/lib/api";
 
 export function AnnouncementMarquee() {
-  const { announcements, content, primaryLocation } = usePublicContent();
-  const [status, setStatus] = useState<OfficeStatus>({
-    isOpen: true,
-    statusText: "Open Now",
-    nextEventText: "",
-  });
+  const { announcements: contextAnnouncements } = usePublicContent();
+  const [liveAnnouncements, setLiveAnnouncements] = useState<Announcement[]>([]);
 
   useEffect(() => {
-    setStatus(getOfficeStatus());
+    let isMounted = true;
+    fetchPublicAnnouncements()
+      .then((data) => {
+        if (isMounted) {
+          setLiveAnnouncements(data || []);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setLiveAnnouncements([]);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const phone = content.general?.phone || primaryLocation?.phone || "(312) 555-0147";
-  const hoursText = primaryLocation?.hoursInfo || "Mon – Thu: 8:00 AM – 6:00 PM · Fri: 8:00 AM – 2:00 PM";
+  // Prefer directly fetched fresh announcements, fallback to context
+  const activeAnnouncements = (liveAnnouncements.length > 0 ? liveAnnouncements : contextAnnouncements)
+    .filter((a) => a.isActive)
+    .sort((a, b) => a.displayOrder - b.displayOrder);
 
-  const dbItems = announcements && announcements.filter((a) => a.isActive).length > 0
-    ? announcements.filter((a) => a.isActive).map((a) => a.content)
-    : [
-        "Now welcoming new patients across all nationwide clinic branches",
-        "100% upfront fee transparency with zero hidden facility surcharges",
-        "Same-day emergency dental relief & reserved triage appointments available",
-      ];
+  // If loading hasn't completed and context is empty, or no active announcements exist, render nothing (no fake text)
+  if (activeAnnouncements.length === 0) {
+    return null;
+  }
 
-  const combinedItems = [
-    `${status.statusText} (${status.nextEventText || "Walk-ins welcome"})`,
-    `Call Clinic: ${phone}`,
-    ...dbItems,
-    `Clinic Hours: ${hoursText.replace(/\n/g, " · ")}`,
-  ];
-
-  // Duplicate list to form a seamless infinite loop from 0% to -50%
-  const tickerItems = [...combinedItems, ...combinedItems];
+  const items = activeAnnouncements.map((a) => a.content);
+  // Duplicate list to form a seamless infinite loop
+  const tickerItems = [...items, ...items];
 
   return (
     <div
       role="region"
-      aria-label="Practice Announcements and Status"
-      className="relative z-30 w-full overflow-hidden bg-transparent border-b border-line/40 py-2 text-xs select-none"
+      aria-label="Practice Announcements"
+      className="relative z-30 w-full overflow-hidden bg-white/90 dark:bg-black/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 py-2.5 text-xs select-none"
     >
       <div className="flex w-full overflow-hidden">
         <motion.div
-          className="flex shrink-0 items-center gap-10 whitespace-nowrap"
+          className="flex shrink-0 items-center gap-12 whitespace-nowrap"
           animate={{ x: ["0%", "-50%"] }}
           transition={{
             repeat: Infinity,
             ease: "linear",
-            duration: Math.max(30, tickerItems.length * 6),
+            duration: Math.max(25, tickerItems.length * 8),
           }}
         >
           {tickerItems.map((text, idx) => (
             <div
               key={`${idx}-${text}`}
-              className="inline-flex items-center gap-3 text-ink/85 text-[12px] font-medium tracking-wide"
+              className="inline-flex items-center gap-3 text-black dark:text-white text-[12.5px] font-medium tracking-wide"
             >
-              <span className="text-secondary font-bold text-xs">✦</span>
+              <span className="text-primary font-bold text-xs">✦</span>
               <span>{text}</span>
             </div>
           ))}

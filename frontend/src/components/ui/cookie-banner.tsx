@@ -44,18 +44,18 @@ export function CookieBanner() {
 
   return (
     <aside
-      className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-xl rounded-xl border border-line bg-bone/95 p-5 backdrop-blur-md elevation-3 sm:bottom-6 sm:left-6"
+      className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-xl rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 p-5 backdrop-blur-md shadow-2xl sm:bottom-6 sm:left-6"
       role="region"
       aria-label="Privacy and cookies notice"
     >
       <div className="flex flex-col gap-4">
         <div>
-          <p className="font-display text-[16px] font-medium text-ink">
+          <p className="font-display text-[16px] font-medium text-gray-900 dark:text-white">
             Privacy &amp; Site Cookies
           </p>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-ink-soft">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-gray-600 dark:text-gray-400">
             We use essential cookies to maintain your appointment scheduling progress and remember your theme preferences. We do not sell your personal data or run behavioral ad trackers. Read our{" "}
-            <Link href="/privacy" className="text-forest underline underline-offset-2">
+            <Link href="/privacy" className="text-primary underline underline-offset-2">
               Privacy Policy
             </Link>{" "}
             for full details.

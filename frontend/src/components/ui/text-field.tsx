@@ -39,11 +39,11 @@ export const TextField = React.forwardRef<
     const helpId = `${inputId}-help`;
 
     const commonClasses = cn(
-      "w-full rounded-[var(--radius-card)] border bg-cream/70 px-4 py-3 text-[15px] text-ink outline-none transition-colors",
-      "focus:border-forest focus:ring-1 focus:ring-forest/30",
+      "w-full rounded-2xl border bg-white dark:bg-gray-900 px-4 py-3 text-[14px] text-gray-900 dark:text-white placeholder:text-gray-400 outline-none transition-colors",
+      "focus:border-primary focus:ring-2 focus:ring-primary/20",
       error
         ? "border-red-600 focus:border-red-600 focus:ring-red-600/20"
-        : "border-line hover:border-line/80",
+        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600",
       className
     );
 
@@ -51,10 +51,10 @@ export const TextField = React.forwardRef<
       <div className="w-full space-y-1.5">
         <label
           htmlFor={inputId}
-          className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft/80"
+          className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-700 dark:text-gray-300"
         >
           {label}
-          {required && <span className="ml-1 text-clay">*</span>}
+          {required && <span className="ml-1 text-primary">*</span>}
         </label>
 
         {multiline ? (
@@ -81,7 +81,7 @@ export const TextField = React.forwardRef<
         )}
 
         {helpText && !error && (
-          <p id={helpId} className="text-[12px] text-ink-soft/75">
+          <p id={helpId} className="text-[12px] text-gray-500 dark:text-gray-400">
             {helpText}
           </p>
         )}

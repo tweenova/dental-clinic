@@ -18,10 +18,12 @@ import { TextField } from "@/components/ui/text-field";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
   adminCreateTeamMember,
+  adminGetLocations,
   adminGetTeam,
   adminToggleTeamMemberStatus,
   adminUpdateTeamMember,
   adminUploadMedia,
+  LocationItem,
   TeamMember,
 } from "@/lib/api";
 
@@ -40,6 +42,7 @@ const ROLES = [
 export default function AdminTeamPage() {
   const { accessToken } = useAuth();
   const [team, setTeam] = useState<TeamMember[]>([]);
+  const [locations, setLocations] = useState<LocationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -48,7 +51,22 @@ export default function AdminTeamPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    firstName: string;
+    lastName: string;
+    displayName: string;
+    professionalTitle: string;
+    role: string;
+    specialties: string;
+    biography: string;
+    education: string;
+    credentials: string;
+    licenseNumber: string;
+    licenseState: string;
+    photoUrl: string;
+    locationId: string | null;
+    displayOrder: number;
+  }>({
     firstName: "",
     lastName: "",
     displayName: "",
@@ -61,26 +79,32 @@ export default function AdminTeamPage() {
     licenseNumber: "",
     licenseState: "Illinois",
     photoUrl: "",
+    locationId: null,
     displayOrder: 0,
   });
 
   const [isUploading, setIsUploading] = useState(false);
 
-  const loadTeam = async () => {
+  const loadData = async () => {
     if (!accessToken) return;
     setIsLoading(true);
     try {
-      const data = await adminGetTeam(accessToken);
-      setTeam(data);
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to load team.");
+      const [teamData, locData] = await Promise.all([
+        adminGetTeam(accessToken),
+        adminGetLocations(accessToken).catch(() => []),
+      ]);
+      setTeam(teamData);
+      setLocations(locData);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load team data.";
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadTeam();
+    loadData();
   }, [accessToken]);
 
   const openAddModal = () => {
@@ -98,6 +122,7 @@ export default function AdminTeamPage() {
       licenseNumber: "",
       licenseState: "Illinois",
       photoUrl: "",
+      locationId: locations[0]?.id || null,
       displayOrder: team.length,
     });
     setShowModal(true);
@@ -118,6 +143,7 @@ export default function AdminTeamPage() {
       licenseNumber: member.licenseNumber || "",
       licenseState: member.licenseState || "Illinois",
       photoUrl: member.photoUrl || "",
+      locationId: member.locationId || null,
       displayOrder: member.displayOrder,
     });
     setShowModal(true);
@@ -133,8 +159,9 @@ export default function AdminTeamPage() {
       const res = await adminUploadMedia(file, accessToken);
       setForm((prev) => ({ ...prev, photoUrl: res.url }));
       setSuccessMessage("Photo uploaded successfully.");
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to upload photo.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to upload photo.";
+      setErrorMessage(msg);
     } finally {
       setIsUploading(false);
     }
@@ -161,6 +188,7 @@ export default function AdminTeamPage() {
       licenseNumber: form.licenseNumber.trim() || null,
       licenseState: form.licenseState.trim() || null,
       photoUrl: form.photoUrl.trim() || null,
+      locationId: form.locationId || null,
       displayOrder: Number(form.displayOrder) || 0,
       isActive: true,
     };
@@ -174,9 +202,9 @@ export default function AdminTeamPage() {
         setSuccessMessage("New team member added successfully.");
       }
       setShowModal(false);
-      loadTeam();
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to save team member.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to save team member.";
+      setErrorMessage(msg);
     }
   };
 
@@ -185,9 +213,10 @@ export default function AdminTeamPage() {
     try {
       await adminToggleTeamMemberStatus(id, !currentStatus, accessToken);
       setSuccessMessage(`Team member ${currentStatus ? "deactivated" : "reactivated"}.`);
-      loadTeam();
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to toggle status.");
+      loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to toggle status.";
+      setErrorMessage(msg);
     }
   };
 
@@ -290,6 +319,12 @@ export default function AdminTeamPage() {
                     </p>
                   )}
 
+                  {member.locationId && (
+                    <p className="text-[11px] text-forest dark:text-emerald-400 font-medium">
+                      Location: {locations.find((l) => l.id === member.locationId)?.name || "Assigned Facility"}
+                    </p>
+                  )}
+
                   {member.specialties.length > 0 && (
                     <div className="flex flex-wrap gap-1 pt-1">
                       {member.specialties.map((spec, i) => (
@@ -327,18 +362,19 @@ export default function AdminTeamPage() {
 
       {/* Modal Dialog for Add / Edit */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
           <div className="w-full max-w-xl my-8">
-            <Card surface="cream" shadow="elevated" className="p-6 sm:p-8 space-y-5">
-              <div className="flex items-center justify-between border-b border-line pb-3">
-                <h3 className="font-display text-lg text-ink">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6 sm:p-8 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between border-b border-line dark:border-gray-800 pb-3">
+                <h3 className="font-display text-xl text-ink dark:text-white font-semibold">
                   {editingId ? "Edit Team Member" : "Add Team Member"}
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-xs text-ink-soft hover:text-ink font-mono cursor-pointer"
+                  className="rounded-full p-1.5 text-xs text-ink-soft hover:text-ink hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                  aria-label="Close modal"
                 >
-                  ✕ Close
+                  ✕
                 </button>
               </div>
 
@@ -381,14 +417,14 @@ export default function AdminTeamPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="member-role" className="block text-xs font-medium text-ink mb-1.5">
+                    <label htmlFor="member-role" className="block text-xs font-medium text-ink dark:text-gray-300 mb-1.5">
                       Role Category
                     </label>
                     <select
                       id="member-role"
                       value={form.role}
                       onChange={(e) => setForm({ ...form, role: e.target.value })}
-                      className="w-full rounded-[var(--radius-card)] border border-line bg-bone px-3.5 py-2 text-xs text-ink"
+                      className="w-full rounded-2xl border border-line dark:border-gray-700 bg-cream/70 dark:bg-gray-800/80 px-4 py-3 text-xs text-ink dark:text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                     >
                       {ROLES.map((r) => (
                         <option key={r} value={r}>
@@ -407,16 +443,37 @@ export default function AdminTeamPage() {
                   />
                 </div>
 
-                <TextField
-                  id="member-specialties"
-                  label="Specialties (comma-separated)"
-                  value={form.specialties}
-                  onChange={(e) => setForm({ ...form, specialties: e.target.value })}
-                  placeholder="General Dentistry, Invisalign, Restorative Care"
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <TextField
+                    id="member-specialties"
+                    label="Specialties (comma-separated)"
+                    value={form.specialties}
+                    onChange={(e) => setForm({ ...form, specialties: e.target.value })}
+                    placeholder="General Dentistry, Invisalign, Restorative Care"
+                  />
+
+                  <div>
+                    <label htmlFor="member-location" className="block text-xs font-medium text-ink dark:text-gray-300 mb-1.5">
+                      Assigned Facility / Clinic
+                    </label>
+                    <select
+                      id="member-location"
+                      value={form.locationId || ""}
+                      onChange={(e) => setForm({ ...form, locationId: e.target.value || null })}
+                      className="w-full rounded-2xl border border-line dark:border-gray-700 bg-cream/70 dark:bg-gray-800/80 px-4 py-3 text-xs text-ink dark:text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">Practice-wide / All Facilities</option>
+                      {locations.map((loc) => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.name} ({loc.city})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
                 <div>
-                  <label htmlFor="member-bio" className="block text-xs font-medium text-ink mb-1.5">
+                  <label htmlFor="member-bio" className="block text-xs font-medium text-ink dark:text-gray-300 mb-1.5">
                     Biography
                   </label>
                   <textarea
@@ -424,7 +481,7 @@ export default function AdminTeamPage() {
                     rows={4}
                     value={form.biography}
                     onChange={(e) => setForm({ ...form, biography: e.target.value })}
-                    className="w-full rounded-[var(--radius-card)] border border-line bg-bone px-3.5 py-2 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-forest"
+                    className="w-full rounded-2xl border border-line dark:border-gray-700 bg-cream/70 dark:bg-gray-800/80 px-4 py-3 text-xs text-ink dark:text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
 
@@ -456,7 +513,7 @@ export default function AdminTeamPage() {
                   />
 
                   <div className="flex items-center gap-3">
-                    <label className="inline-flex items-center gap-1.5 rounded-full border border-line bg-sand/60 px-3 py-1.5 text-xs font-medium text-ink cursor-pointer hover:bg-sand transition-colors">
+                    <label className="inline-flex items-center gap-1.5 rounded-full border border-line dark:border-gray-700 bg-sand/60 dark:bg-gray-800 px-3 py-1.5 text-xs font-medium text-ink dark:text-gray-200 cursor-pointer hover:bg-sand dark:hover:bg-gray-700 transition-colors">
                       <Upload className="h-3.5 w-3.5" />
                       <span>{isUploading ? "Uploading..." : "Upload photo file"}</span>
                       <input
@@ -475,16 +532,16 @@ export default function AdminTeamPage() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-line/60 flex justify-end gap-2">
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setShowModal(false)}>
+                <div className="pt-4 border-t border-line dark:border-gray-800 flex justify-end gap-2.5">
+                  <Button type="button" variant="secondary" size="sm" className="rounded-full px-5" onClick={() => setShowModal(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" variant="primary" size="sm">
+                  <Button type="submit" variant="primary" size="sm" className="rounded-full px-5">
                     {editingId ? "Update Member" : "Save Team Member"}
                   </Button>
                 </div>
               </form>
-            </Card>
+            </div>
           </div>
         </div>
       )}

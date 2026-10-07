@@ -36,13 +36,13 @@ export const Button = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, Bu
 
     const variantStyles = {
       primary:
-        "bg-primary text-[#FAF7F2] border border-transparent shadow-subtle hover:brightness-90 hover:-translate-y-0.5 hover:shadow-card active:translate-y-0 active:scale-[0.98] focus-visible:ring-primary",
+        "bg-primary text-white border border-transparent shadow-subtle hover:brightness-105 hover:-translate-y-0.5 hover:shadow-card active:translate-y-0 active:scale-[0.98] focus-visible:ring-primary",
       secondary:
-        "bg-cream text-ink border border-line hover:bg-sand/70 hover:-translate-y-0.5 hover:shadow-subtle active:translate-y-0 active:scale-[0.98] focus-visible:ring-primary",
+        "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 hover:-translate-y-0.5 hover:shadow-subtle active:translate-y-0 active:scale-[0.98] focus-visible:ring-primary",
       outline:
-        "bg-transparent text-ink border border-line hover:border-primary hover:text-primary hover:-translate-y-0.5 hover:shadow-subtle active:translate-y-0 active:scale-[0.98] focus-visible:ring-primary",
+        "bg-transparent text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary hover:-translate-y-0.5 hover:shadow-subtle active:translate-y-0 active:scale-[0.98] focus-visible:ring-primary",
       ghost:
-        "bg-transparent text-ink-soft hover:text-primary hover:bg-sand/30 active:scale-[0.98] focus-visible:ring-primary",
+        "bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-[0.98] focus-visible:ring-primary",
     };
 
     const sizeStyles = {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -15,30 +15,38 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = "marlow_theme_preference";
 
+const emptySubscribe = () => () => {};
+
 /**
  * Manages the color scheme (light, dark, or system preference) across the entire application.
  * It stores the user's choice in browser storage and toggles CSS class names on the root HTML element.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-      if (stored && ["light", "dark", "system"].includes(stored)) {
-        setThemeState(stored);
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
+        if (stored && ["light", "dark", "system"].includes(stored)) {
+          return stored;
+        }
+      } catch {
+        // localStorage unavailable
       }
-    } catch {
-      // localStorage unavailable
     }
-    setMounted(true);
-  }, []);
+    return "system";
+  });
+
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(() => {
+    if (typeof window !== "undefined") {
+      return document.documentElement.classList.contains("dark") ? "dark" : "light";
+    }
+    return "light";
+  });
+
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   useEffect(() => {
     const root = document.documentElement;
-
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
     const applyTheme = () => {

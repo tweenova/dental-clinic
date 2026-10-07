@@ -129,7 +129,7 @@ export default function RootLayout({
               (function() {
                 try {
                   var stored = localStorage.getItem('marlow_theme_preference');
-                  var isDark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  var isDark = stored === 'dark' || ((!stored || stored === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches);
                   if (isDark) {
                     document.documentElement.classList.add('dark');
                     document.documentElement.setAttribute('data-theme', 'dark');
@@ -147,7 +147,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="grain bg-bone text-ink antialiased">
+      <body className="grain bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased">
         <ThemeProvider>
           <AuthProvider>
             <PublicContentProvider>{children}</PublicContentProvider>

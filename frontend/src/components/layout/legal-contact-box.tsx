@@ -18,8 +18,8 @@ export function LegalContactBox({
       : "Chicago, IL 60614";
 
   return (
-    <div className="rounded-[var(--radius-card)] border border-line bg-bone p-4 text-xs space-y-1 font-mono">
-      <p className="font-semibold text-ink">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 text-xs space-y-1 font-mono text-gray-600 dark:text-gray-400">
+      <p className="font-semibold text-gray-900 dark:text-white">
         {practiceName} — {officerTitle}
       </p>
       <p>{addressLine1}</p>
