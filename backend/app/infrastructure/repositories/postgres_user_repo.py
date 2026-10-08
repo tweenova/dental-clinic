@@ -18,13 +18,25 @@ class PostgresUserRepository(UserRepository):
 
     @staticmethod
     def _to_domain(orm: UserORM) -> User:
+        raw_role = (orm.role or "admin").strip().lower()
+        role_map = {
+            "admin": UserRole.ADMIN,
+            "receptionist": UserRole.RECEPTIONIST,
+            "doctor": UserRole.DOCTOR,
+            "patient": UserRole.PATIENT,
+            "platform owner": UserRole.PLATFORM_OWNER,
+            "super admin": UserRole.SUPER_ADMIN,
+            "clinic branch manager": UserRole.CLINIC_BRANCH_MANAGER,
+        }
+        role = role_map.get(raw_role, UserRole.ADMIN)
         return User(
             id=orm.id,
             email=orm.email,
             hashed_password=orm.hashed_password,
             full_name=orm.full_name,
-            role=UserRole(orm.role),
+            role=role,
             is_active=orm.is_active,
+            clinic_id=orm.clinic_id if hasattr(orm, "clinic_id") else None,
             inactivity_enabled=orm.inactivity_enabled,
             inactivity_timeout_minutes=orm.inactivity_timeout_minutes,
             inactivity_warning_seconds=orm.inactivity_warning_seconds,

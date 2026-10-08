@@ -13,6 +13,19 @@ This repository is maintained as a clean, decoupled monorepo containing:
 Marlow Dental's digital platform delivers:
 - **Public Patient Experience**: Dynamic homepage, multi-location selector, multidisciplinary clinical team directory, dynamic service catalog, accordion FAQ, and a 4-step URL-synced appointment booking wizard (`/book`).
 - **Staff Administration (CMS)**: Secure editorial dashboard (`/admin`) for updating practice details, physical locations, clinical staff credentials, dental procedures, FAQ answers, and website content sections.
+- **Front-Office Receptionist Workspace (`/reception`)**: Full front-desk command center including:
+  - **Today at a Glance & Patient Flow**: Real-time database metrics, arrival times, wait durations, chair handoffs, and quick actions.
+  - **Operational Schedule**: Day & list calendar views, provider filters, slot creation, rescheduling, and cancellation.
+  - **Appointments & Intake Triage**: Canonical relational bookings management, website request reviews (`/reception/appointments/requests`), and upcoming confirmation queues (`/reception/appointments/confirmations`).
+  - **Check-In & Waiting Room Flow (`/reception/check-in`)**: Live status transitions (`scheduled` → `arrived` → `in_progress` → `completed`).
+  - **Patient Directory & Profiles (`/reception/patients`)**: Server-side search by name/phone/email/MRN, duplicate detection safeguards, and comprehensive charts.
+  - **Operational Tasks Board (`/reception/tasks`)**: Front-desk task tracking, priority queues, and patient follow-ups.
+  - **Communications Center (`/reception/messages`)**: SMS, email, portal, and internal staff communication logs.
+  - **Preventive Recalls (`/reception/recalls`)**: Hygiene and periodic exam cycle tracking.
+  - **ASAP Waitlist (`/reception/waitlist`)**: Cancellation fill queue for open chair time.
+  - **Prospective Leads (`/reception/leads`)**: Inquiry triage and 1-click conversion to patient charts.
+- **Practitioner Foundation (`/doctor`)**: Doctor schedule view and patient visit clinical notes updater.
+- **Multi-Role RBAC & Clinic Scoping**: Strict backend permission checks and `clinic_id` boundary enforcement for `admin`, `receptionist`, `doctor`, and `patient` roles.
 - **Enterprise-Grade Authentication**:
   - **7-day access token** held strictly in frontend memory (`src/lib/api.ts`).
   - **7-day refresh token** delivered as a secure, browser-managed `HttpOnly`, `SameSite=Lax` cookie (`marlow_refresh_token`).
@@ -92,7 +105,7 @@ dental-clinic-project/
 │   │   └── infrastructure/       # SQLAlchemy ORM models, repositories, local storage
 │   ├── alembic/                  # Database migration scripts & env.py
 │   │   └── versions/             # Migrations: 0001, 0002, 0003
-│   ├── tests/                    # Pytest test suite (32/32 tests passing)
+│   ├── tests/                    # Pytest test suite (40/40 tests passing)
 │   ├── requirements.txt          # Python package requirements
 │   ├── .env.example              # Template for backend configuration
 │   └── README.md                 # Backend-specific architecture and CLI guide

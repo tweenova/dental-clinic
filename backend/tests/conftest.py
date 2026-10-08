@@ -83,3 +83,63 @@ async def admin_auth(test_session: AsyncSession, client_with_db: AsyncClient):
         "user": admin_user,
         "cookies": resp.cookies,
     }
+
+
+@pytest_asyncio.fixture
+async def receptionist_auth(test_session: AsyncSession, client_with_db: AsyncClient):
+    """Creates a test receptionist user and logs in, returning auth headers and client."""
+    user_repo = PostgresUserRepository(test_session)
+    rec_user = User(
+        email="testreceptionist@marlowdental.com",
+        hashed_password=hash_password("Receptionist123!"),
+        full_name="Test Receptionist",
+        role=UserRole.RECEPTIONIST,
+        is_active=True,
+    )
+    await user_repo.save(rec_user)
+    await test_session.commit()
+
+    resp = await client_with_db.post(
+        "/api/v1/auth/login",
+        json={"email": "testreceptionist@marlowdental.com", "password": "Receptionist123!"},
+    )
+    assert resp.status_code == 200
+    token = resp.json()["accessToken"]
+    headers = {"Authorization": f"Bearer {token}"}
+    return {
+        "headers": headers,
+        "token": token,
+        "client": client_with_db,
+        "user": rec_user,
+        "cookies": resp.cookies,
+    }
+
+
+@pytest_asyncio.fixture
+async def doctor_auth(test_session: AsyncSession, client_with_db: AsyncClient):
+    """Creates a test doctor user and logs in, returning auth headers and client."""
+    user_repo = PostgresUserRepository(test_session)
+    doc_user = User(
+        email="testdoctor@marlowdental.com",
+        hashed_password=hash_password("DoctorTest123!"),
+        full_name="Test Doctor",
+        role=UserRole.DOCTOR,
+        is_active=True,
+    )
+    await user_repo.save(doc_user)
+    await test_session.commit()
+
+    resp = await client_with_db.post(
+        "/api/v1/auth/login",
+        json={"email": "testdoctor@marlowdental.com", "password": "DoctorTest123!"},
+    )
+    assert resp.status_code == 200
+    token = resp.json()["accessToken"]
+    headers = {"Authorization": f"Bearer {token}"}
+    return {
+        "headers": headers,
+        "token": token,
+        "client": client_with_db,
+        "user": doc_user,
+        "cookies": resp.cookies,
+    }

@@ -9,7 +9,9 @@ from app.application.services.announcement_service import AnnouncementService
 from app.application.services.appointment_service import AppointmentService
 from app.application.services.auth_service import AuthService
 from app.application.services.cms_service import CmsService
+from app.application.services.doctor_service import DoctorService
 from app.application.services.organization_service import OrganizationService
+from app.application.services.reception_service import ReceptionService
 from app.application.services.service_service import ServiceService
 from app.application.services.team_service import TeamService
 from app.core.database import get_db_session
@@ -17,9 +19,14 @@ from app.core.security import decode_access_token
 from app.domain.models.user import User, UserRole
 from app.domain.repositories.announcement_repo import AnnouncementRepository
 from app.domain.repositories.appointment_repo import AppointmentRepository
+from app.domain.repositories.booking_repo import BookingRepository
 from app.domain.repositories.cms_repo import CmsRepository
+from app.domain.repositories.lead_repo import LeadRepository
+from app.domain.repositories.message_repo import MessageRepository
 from app.domain.repositories.organization_repo import LocationRepository, OrganizationRepository
+from app.domain.repositories.patient_repo import PatientRepository
 from app.domain.repositories.service_repo import ServiceRepository
+from app.domain.repositories.task_repo import TaskRepository
 from app.domain.repositories.team_repo import TeamMemberRepository
 from app.domain.repositories.user_repo import (
     RefreshTokenRepository,
@@ -29,12 +36,17 @@ from app.domain.repositories.user_repo import (
 from app.domain.services.storage_service import StorageService
 from app.infrastructure.repositories.postgres_announcement_repo import PostgresAnnouncementRepository
 from app.infrastructure.repositories.postgres_appointment_repo import PostgresAppointmentRepository
+from app.infrastructure.repositories.postgres_booking_repo import PostgresBookingRepository
 from app.infrastructure.repositories.postgres_cms_repo import PostgresCmsRepository
+from app.infrastructure.repositories.postgres_lead_repo import PostgresLeadRepository
+from app.infrastructure.repositories.postgres_message_repo import PostgresMessageRepository
 from app.infrastructure.repositories.postgres_organization_repo import (
     PostgresLocationRepository,
     PostgresOrganizationRepository,
 )
+from app.infrastructure.repositories.postgres_patient_repo import PostgresPatientRepository
 from app.infrastructure.repositories.postgres_service_repo import PostgresServiceRepository
+from app.infrastructure.repositories.postgres_task_repo import PostgresTaskRepository
 from app.infrastructure.repositories.postgres_team_repo import PostgresTeamMemberRepository
 from app.infrastructure.repositories.postgres_user_repo import (
     PostgresRefreshTokenRepository,
@@ -108,6 +120,36 @@ def get_announcement_repository(
     return PostgresAnnouncementRepository(session)
 
 
+def get_booking_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> BookingRepository:
+    return PostgresBookingRepository(session)
+
+
+def get_patient_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> PatientRepository:
+    return PostgresPatientRepository(session)
+
+
+def get_task_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> TaskRepository:
+    return PostgresTaskRepository(session)
+
+
+def get_lead_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> LeadRepository:
+    return PostgresLeadRepository(session)
+
+
+def get_message_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> MessageRepository:
+    return PostgresMessageRepository(session)
+
+
 def get_storage_service() -> StorageService:
     return LocalStorageService()
 
@@ -158,6 +200,30 @@ def get_announcement_service(
     repo: AnnouncementRepository = Depends(get_announcement_repository),
 ) -> AnnouncementService:
     return AnnouncementService(repo)
+
+
+def get_reception_service(
+    booking_repo: BookingRepository = Depends(get_booking_repository),
+    patient_repo: PatientRepository = Depends(get_patient_repository),
+    task_repo: TaskRepository = Depends(get_task_repository),
+    lead_repo: LeadRepository = Depends(get_lead_repository),
+    message_repo: MessageRepository = Depends(get_message_repository),
+    appointment_repo: AppointmentRepository = Depends(get_appointment_repository),
+) -> ReceptionService:
+    return ReceptionService(
+        booking_repo,
+        patient_repo,
+        task_repo,
+        lead_repo,
+        message_repo,
+        appointment_repo,
+    )
+
+
+def get_doctor_service(
+    booking_repo: BookingRepository = Depends(get_booking_repository),
+) -> DoctorService:
+    return DoctorService(booking_repo)
 
 
 # --- Authentication & Authorization Dependencies ---
@@ -234,21 +300,26 @@ async def get_current_user(
     return user
 
 
-def require_role(required_role: str) -> Callable:
+def require_role(*allowed_roles: str) -> Callable:
     """
-    Factory dependency enforcing role-based authorization.
-    Can be easily extended for future granular permissions.
+    Factory dependency enforcing role-based authorization for one or more permitted roles.
+    Matches case-insensitively to support both "admin" / "Admin", "receptionist" / "Receptionist", etc.
     """
+    normalized_allowed = {r.strip().lower() for r in allowed_roles}
+
     async def role_checker(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role.value != required_role:
+        user_role_str = str(current_user.role.value).strip().lower()
+        if user_role_str not in normalized_allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access forbidden: requires '{required_role}' role.",
+                detail=f"Access forbidden: user role '{current_user.role.value}' does not have required permissions.",
             )
         return current_user
 
     return role_checker
 
 
-# Convenient pre-configured dependency for admin endpoints
-require_admin = require_role("admin")
+# Pre-configured role dependencies
+require_admin = require_role("admin", "Platform Owner", "Super Admin")
+require_receptionist = require_role("receptionist", "Receptionist", "admin", "Admin", "Super Admin", "Clinic Branch Manager")
+require_doctor = require_role("doctor", "Doctor", "admin", "Admin", "Super Admin")

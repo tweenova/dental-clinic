@@ -183,6 +183,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     lastActivityRef.current = Date.now();
     if (data.user.role === "admin") {
       router.push("/admin");
+    } else if (data.user.role === "receptionist") {
+      router.push("/reception");
+    } else if (data.user.role === "doctor") {
+      router.push("/doctor");
+    } else {
+      router.push("/");
     }
   };
 

@@ -23,6 +23,10 @@ export default function LoginPage() {
     if (!isLoading && user) {
       if (user.role === "admin") {
         router.push("/admin");
+      } else if (user.role === "receptionist") {
+        router.push("/reception");
+      } else if (user.role === "doctor") {
+        router.push("/doctor");
       }
     }
   }, [user, isLoading, router]);

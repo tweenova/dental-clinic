@@ -92,6 +92,8 @@ export interface User {
   fullName: string;
   role: string;
   isActive: boolean;
+  clinicId?: string | null;
+  organizationId?: string | null;
   inactivityEnabled?: boolean;
   inactivityTimeoutMinutes?: number;
   inactivityWarningSeconds?: number;
@@ -985,4 +987,770 @@ export async function adminUpdatePermissions(
   return res.json();
 }
 
+// ==========================================
+// Receptionist & Doctor Operations API Layer
+// ==========================================
+
+export interface ReceptionDashboardStats {
+  todayAppointments: number;
+  confirmed: number;
+  unconfirmed: number;
+  checkedIn: number;
+  waiting: number;
+  inProgress: number;
+  completed: number;
+  cancelled: number;
+  noShow: number;
+  pendingRequests: number;
+  overdueTasks: number;
+  recallsDue: number;
+  todayFlow: Array<{
+    id: string;
+    bookingNumber?: string | null;
+    appointmentTime: string;
+    patientId: string;
+    patientName: string;
+    patientPhone?: string | null;
+    providerId?: string | null;
+    providerName?: string | null;
+    clinicId: string;
+    serviceName?: string | null;
+    status: string;
+    confirmationStatus: string;
+    arrivalTime?: string | null;
+    waitingMinutes?: number | null;
+  }>;
+  needsAttention: Array<{
+    type: string;
+    title: string;
+    description: string;
+    link: string;
+    priority: string;
+  }>;
+}
+
+export interface ReceptionDailyHuddle {
+  date: string;
+  totalAppointments: number;
+  firstAppointmentTime?: string | null;
+  unconfirmedCount: number;
+  requestsCount: number;
+  providerSchedule: Array<{
+    providerId: string;
+    providerName: string;
+    appointmentsCount: number;
+    firstSlot?: string | null;
+    lastSlot?: string | null;
+  }>;
+  actionItems: string[];
+}
+
+export interface ReceptionBooking {
+  id: string;
+  organizationId: string;
+  clinicId: string;
+  patientId: string;
+  patientName?: string | null;
+  patientPhone?: string | null;
+  teamMemberId?: string | null;
+  providerName?: string | null;
+  serviceId?: string | null;
+  serviceName?: string | null;
+  slotId?: string | null;
+  bookingNumber?: string | null;
+  bookingDate: string;
+  bookingTime: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  durationMinutes: number;
+  status: string;
+  confirmationStatus: string;
+  arrivalStatus?: string | null;
+  arrivalTime?: string | null;
+  confirmedAt?: string | null;
+  confirmedBy?: string | null;
+  cancellationReason?: string | null;
+  notes?: string | null;
+  source: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReceptionPatient {
+  id: string;
+  organizationId: string;
+  clinicId?: string | null;
+  mrn?: string | null;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  email?: string | null;
+  phone: string;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  preferredLanguage?: string | null;
+  insuranceProvider?: string | null;
+  insurancePolicyNumber?: string | null;
+  insuranceGroupNumber?: string | null;
+  recallDue?: string | null;
+  recallStatus?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReceptionPatientDetail extends ReceptionPatient {
+  upcomingBookings: ReceptionBooking[];
+  pastBookings: ReceptionBooking[];
+  tasks: ReceptionTask[];
+  messages: ReceptionMessage[];
+}
+
+export interface ReceptionTask {
+  id: string;
+  organizationId: string;
+  clinicId?: string | null;
+  patientId?: string | null;
+  patientName?: string | null;
+  bookingId?: string | null;
+  assignedUserId?: string | null;
+  assignedUserName?: string | null;
+  title: string;
+  description?: string | null;
+  priority: "low" | "medium" | "high" | "urgent";
+  status: "open" | "in_progress" | "completed" | "cancelled";
+  dueDate?: string | null;
+  completedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReceptionLead {
+  id: string;
+  organizationId: string;
+  clinicId?: string | null;
+  sourceId?: string | null;
+  sourceName?: string | null;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  email?: string | null;
+  phone: string;
+  preferredContactMethod?: string | null;
+  interestedServiceId?: string | null;
+  interestedServiceName?: string | null;
+  status: "new" | "contacted" | "qualified" | "converted" | "lost";
+  notes?: string | null;
+  convertedPatientId?: string | null;
+  convertedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReceptionMessage {
+  id: string;
+  organizationId: string;
+  clinicId?: string | null;
+  patientId?: string | null;
+  patientName?: string | null;
+  bookingId?: string | null;
+  direction: "inbound" | "outbound";
+  channel: "sms" | "email" | "portal" | "whatsapp";
+  sender?: string | null;
+  recipient?: string | null;
+  subject?: string | null;
+  body: string;
+  status: "draft" | "queued" | "sent" | "delivered" | "failed" | "read";
+  isInternalNote: boolean;
+  sentAt?: string | null;
+  readAt?: string | null;
+  createdAt?: string;
+}
+
+export interface ReceptionRequestItem {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  preferredDate: string;
+  preferredTime: string;
+  serviceId?: string | null;
+  serviceTitle?: string | null;
+  status: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface ReceptionRecall {
+  patientId: string;
+  patientName: string;
+  phone: string;
+  email?: string | null;
+  lastVisitDate?: string | null;
+  recallDue?: string | null;
+  recallStatus: string;
+  recommendedService?: string | null;
+}
+
+export interface ReceptionWaitlistItem {
+  id: string;
+  patientId: string;
+  patientName: string;
+  patientPhone: string;
+  serviceId?: string | null;
+  serviceName?: string | null;
+  providerId?: string | null;
+  providerName?: string | null;
+  clinicId?: string | null;
+  availableDays?: string[];
+  preferredTimeOfDay?: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  status: "waiting" | "contacted" | "scheduled" | "expired" | "cancelled";
+  notes?: string | null;
+  createdAt: string;
+}
+
+// Reception API Fetchers
+export async function getReceptionDashboard(token?: string | null): Promise<ReceptionDashboardStats> {
+  const res = await authorizedFetch(`/api/v1/reception/dashboard`, {}, token);
+  if (!res.ok) throw new Error("Failed to fetch reception dashboard data.");
+  return res.json();
+}
+
+export async function getReceptionHuddle(token?: string | null): Promise<ReceptionDailyHuddle> {
+  const res = await authorizedFetch(`/api/v1/reception/huddle`, {}, token);
+  if (!res.ok) throw new Error("Failed to fetch daily huddle.");
+  return res.json();
+}
+
+export async function getReceptionBookings(
+  params?: { date?: string; provider_id?: string; clinic_id?: string; status?: string; search?: string },
+  token?: string | null
+): Promise<ReceptionBooking[]> {
+  const query = new URLSearchParams();
+  if (params?.date) query.set("date", params.date);
+  if (params?.provider_id) query.set("provider_id", params.provider_id);
+  if (params?.clinic_id) query.set("clinic_id", params.clinic_id);
+  if (params?.status) query.set("status", params.status);
+  if (params?.search) query.set("search", params.search);
+
+  const res = await authorizedFetch(`/api/v1/reception/bookings?${query.toString()}`, {}, token);
+  if (!res.ok) throw new Error("Failed to fetch reception bookings.");
+  return res.json();
+}
+
+export async function createReceptionBooking(
+  data: {
+    patientId: string;
+    teamMemberId?: string | null;
+    serviceId?: string | null;
+    clinicId?: string | null;
+    bookingDate: string;
+    bookingTime: string;
+    durationMinutes?: number;
+    notes?: string;
+  },
+  token?: string | null
+): Promise<ReceptionBooking> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/bookings`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        patient_id: data.patientId,
+        team_member_id: data.teamMemberId,
+        service_id: data.serviceId,
+        clinic_id: data.clinicId,
+        booking_date: data.bookingDate,
+        booking_time: data.bookingTime,
+        duration_minutes: data.durationMinutes ?? 30,
+        notes: data.notes,
+      }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create booking.");
+  }
+  return res.json();
+}
+
+export async function updateReceptionBookingStatus(
+  bookingId: string,
+  status: string,
+  cancellationReason?: string,
+  token?: string | null
+): Promise<ReceptionBooking> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/bookings/${bookingId}/status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        status,
+        cancellation_reason: cancellationReason,
+      }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update booking status.");
+  }
+  return res.json();
+}
+
+export async function updateReceptionBookingConfirmation(
+  bookingId: string,
+  confirmationStatus: string,
+  token?: string | null
+): Promise<ReceptionBooking> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/bookings/${bookingId}/confirm`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ confirmation_status: confirmationStatus }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update confirmation status.");
+  }
+  return res.json();
+}
+
+export async function rescheduleReceptionBooking(
+  bookingId: string,
+  data: { bookingDate: string; bookingTime: string; teamMemberId?: string },
+  token?: string | null
+): Promise<ReceptionBooking> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/bookings/${bookingId}/reschedule`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        booking_date: data.bookingDate,
+        booking_time: data.bookingTime,
+        team_member_id: data.teamMemberId,
+      }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to reschedule booking.");
+  }
+  return res.json();
+}
+
+export async function getReceptionRequests(
+  status?: string,
+  token?: string | null
+): Promise<ReceptionRequestItem[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await authorizedFetch(`/api/v1/reception/requests${query}`, {}, token);
+  if (!res.ok) throw new Error("Failed to fetch appointment intake requests.");
+  return res.json();
+}
+
+export async function triageReceptionRequest(
+  appointmentId: string,
+  action: "confirm" | "schedule" | "decline",
+  notes?: string,
+  token?: string | null
+): Promise<ReceptionRequestItem> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/requests/${appointmentId}/triage`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ action, notes }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to triage appointment request.");
+  }
+  return res.json();
+}
+
+export async function getReceptionConfirmations(
+  date?: string,
+  token?: string | null
+): Promise<ReceptionBooking[]> {
+  const query = date ? `?date=${encodeURIComponent(date)}` : "";
+  const res = await authorizedFetch(`/api/v1/reception/confirmations${query}`, {}, token);
+  if (!res.ok) throw new Error("Failed to fetch confirmation queue.");
+  return res.json();
+}
+
+export async function searchReceptionPatients(
+  params?: { search?: string; limit?: number; offset?: number },
+  token?: string | null
+): Promise<{ items: ReceptionPatient[]; total: number }> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.offset) query.set("offset", String(params.offset));
+
+  const res = await authorizedFetch(`/api/v1/reception/patients?${query.toString()}`, {}, token);
+  if (!res.ok) throw new Error("Failed to search patients.");
+  return res.json();
+}
+
+export async function getReceptionPatient(
+  patientId: string,
+  token?: string | null
+): Promise<ReceptionPatientDetail> {
+  const res = await authorizedFetch(`/api/v1/reception/patients/${patientId}`, {}, token);
+  if (!res.ok) throw new Error("Failed to load patient profile.");
+  return res.json();
+}
+
+export async function createReceptionPatient(
+  data: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+    dateOfBirth?: string;
+    gender?: string;
+    address?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    insuranceProvider?: string;
+    insurancePolicyNumber?: string;
+    notes?: string;
+    bypassDuplicateCheck?: boolean;
+  },
+  token?: string | null
+): Promise<ReceptionPatient> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/patients`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        first_name: data.firstName,
+        last_name: data.lastName,
+        phone: data.phone,
+        email: data.email,
+        date_of_birth: data.dateOfBirth,
+        gender: data.gender,
+        address: data.address,
+        emergency_contact_name: data.emergencyContactName,
+        emergency_contact_phone: data.emergencyContactPhone,
+        insurance_provider: data.insuranceProvider,
+        insurance_policy_number: data.insurancePolicyNumber,
+        notes: data.notes,
+        bypass_duplicate_check: data.bypassDuplicateCheck ?? false,
+      }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create patient.");
+  }
+  return res.json();
+}
+
+export async function updateReceptionPatient(
+  patientId: string,
+  data: Partial<{
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+    dateOfBirth?: string;
+    gender?: string;
+    address?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    insuranceProvider?: string;
+    insurancePolicyNumber?: string;
+    recallStatus?: string;
+    recallDue?: string;
+    notes?: string;
+  }>,
+  token?: string | null
+): Promise<ReceptionPatient> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/patients/${patientId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        first_name: data.firstName,
+        last_name: data.lastName,
+        phone: data.phone,
+        email: data.email,
+        date_of_birth: data.dateOfBirth,
+        gender: data.gender,
+        address: data.address,
+        emergency_contact_name: data.emergencyContactName,
+        emergency_contact_phone: data.emergencyContactPhone,
+        insurance_provider: data.insuranceProvider,
+        insurance_policy_number: data.insurancePolicyNumber,
+        recall_status: data.recallStatus,
+        recall_due: data.recallDue,
+        notes: data.notes,
+      }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update patient profile.");
+  }
+  return res.json();
+}
+
+export async function getReceptionTasks(
+  params?: { status?: string; priority?: string; patient_id?: string },
+  token?: string | null
+): Promise<ReceptionTask[]> {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+  if (params?.priority) query.set("priority", params.priority);
+  if (params?.patient_id) query.set("patient_id", params.patient_id);
+
+  const res = await authorizedFetch(`/api/v1/reception/tasks?${query.toString()}`, {}, token);
+  if (!res.ok) throw new Error("Failed to load tasks.");
+  return res.json();
+}
+
+export async function createReceptionTask(
+  data: {
+    title: string;
+    description?: string;
+    priority?: "low" | "medium" | "high" | "urgent";
+    patientId?: string;
+    bookingId?: string;
+    dueDate?: string;
+  },
+  token?: string | null
+): Promise<ReceptionTask> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/tasks`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        title: data.title,
+        description: data.description,
+        priority: data.priority ?? "medium",
+        patient_id: data.patientId,
+        booking_id: data.bookingId,
+        due_date: data.dueDate,
+      }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create task.");
+  }
+  return res.json();
+}
+
+export async function updateReceptionTask(
+  taskId: string,
+  data: Partial<{
+    title: string;
+    description: string;
+    priority: "low" | "medium" | "high" | "urgent";
+    status: "open" | "in_progress" | "completed" | "cancelled";
+    dueDate: string;
+  }>,
+  token?: string | null
+): Promise<ReceptionTask> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/tasks/${taskId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        title: data.title,
+        description: data.description,
+        priority: data.priority,
+        status: data.status,
+        due_date: data.dueDate,
+      }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update task.");
+  }
+  return res.json();
+}
+
+export async function getReceptionMessages(
+  params?: { patient_id?: string; channel?: string },
+  token?: string | null
+): Promise<ReceptionMessage[]> {
+  const query = new URLSearchParams();
+  if (params?.patient_id) query.set("patient_id", params.patient_id);
+  if (params?.channel) query.set("channel", params.channel);
+
+  const res = await authorizedFetch(`/api/v1/reception/messages?${query.toString()}`, {}, token);
+  if (!res.ok) throw new Error("Failed to load messages.");
+  return res.json();
+}
+
+export async function sendReceptionMessage(
+  data: {
+    patientId?: string;
+    bookingId?: string;
+    channel: "sms" | "email" | "portal" | "whatsapp";
+    recipient?: string;
+    subject?: string;
+    body: string;
+    isInternalNote?: boolean;
+  },
+  token?: string | null
+): Promise<ReceptionMessage> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        patient_id: data.patientId,
+        booking_id: data.bookingId,
+        channel: data.channel,
+        recipient: data.recipient,
+        subject: data.subject,
+        body: data.body,
+        is_internal_note: data.isInternalNote ?? false,
+      }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to send/log message.");
+  }
+  return res.json();
+}
+
+export async function getReceptionLeads(
+  status?: string,
+  token?: string | null
+): Promise<ReceptionLead[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await authorizedFetch(`/api/v1/reception/leads${query}`, {}, token);
+  if (!res.ok) throw new Error("Failed to load leads.");
+  return res.json();
+}
+
+export async function createReceptionLead(
+  data: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
+    interestedServiceId?: string;
+    notes?: string;
+  },
+  token?: string | null
+): Promise<ReceptionLead> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/leads`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        first_name: data.firstName,
+        last_name: data.lastName,
+        phone: data.phone,
+        email: data.email,
+        interested_service_id: data.interestedServiceId,
+        notes: data.notes,
+      }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create lead.");
+  }
+  return res.json();
+}
+
+export async function convertReceptionLead(
+  leadId: string,
+  token?: string | null
+): Promise<{ success: boolean; message: string; patientId: string }> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/leads/${leadId}/convert`,
+    { method: "POST" },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to convert lead to patient.");
+  }
+  return res.json();
+}
+
+export async function updateReceptionLeadStatus(
+  leadId: string,
+  status: string,
+  token?: string | null
+): Promise<ReceptionLead> {
+  const res = await authorizedFetch(
+    `/api/v1/reception/leads/${leadId}/status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update lead status.");
+  }
+  return res.json();
+}
+
+export async function getReceptionRecalls(
+  status?: string,
+  token?: string | null
+): Promise<ReceptionRecall[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await authorizedFetch(`/api/v1/reception/recalls${query}`, {}, token);
+  if (!res.ok) throw new Error("Failed to load recall queue.");
+  return res.json();
+}
+
+export async function getDoctorSchedule(
+  date?: string,
+  token?: string | null
+): Promise<ReceptionBooking[]> {
+  const query = date ? `?date=${encodeURIComponent(date)}` : "";
+  const res = await authorizedFetch(`/api/v1/doctor/schedule${query}`, {}, token);
+  if (!res.ok) throw new Error("Failed to load doctor schedule.");
+  return res.json();
+}
+
+export async function updateDoctorBookingNotes(
+  bookingId: string,
+  notes: string,
+  token?: string | null
+): Promise<ReceptionBooking> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/bookings/${bookingId}/notes`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ notes }),
+    },
+    token
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update clinical notes.");
+  }
+  return res.json();
+}
 
