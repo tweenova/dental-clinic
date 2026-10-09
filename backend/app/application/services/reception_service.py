@@ -213,15 +213,62 @@ class ReceptionService:
         )
         return await self.booking_repo.save(booking)
 
+    VALID_STATUSES = {
+        "requested",
+        "confirmed",
+        "scheduled",
+        "arrived",
+        "checked_in",
+        "waiting",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "no_show",
+        "waitlist",
+    }
+
+    NORMALIZE_STATUS = {
+        "scheduled": "confirmed",
+    }
+
+    ALLOWED_TRANSITIONS = {
+        "requested": {"confirmed", "scheduled", "cancelled", "waitlist"},
+        "confirmed": {"arrived", "checked_in", "waiting", "in_progress", "cancelled", "no_show", "waitlist", "confirmed"},
+        "scheduled": {"arrived", "checked_in", "waiting", "in_progress", "cancelled", "no_show", "waitlist", "confirmed"},
+        "arrived": {"in_progress", "completed", "cancelled", "no_show", "arrived"},
+        "checked_in": {"in_progress", "completed", "cancelled", "no_show", "checked_in"},
+        "waiting": {"in_progress", "completed", "cancelled", "no_show", "waiting"},
+        "in_progress": {"completed", "cancelled", "in_progress"},
+        "completed": {"completed"},
+        "cancelled": {"requested", "confirmed", "scheduled", "cancelled"},
+        "no_show": {"requested", "confirmed", "scheduled", "no_show"},
+        "waitlist": {"confirmed", "scheduled", "cancelled", "waitlist"},
+    }
+
     async def update_booking_status(
         self, booking_id: UUID, new_status: str, staff_notes: Optional[str] = None
     ) -> Booking:
+        normalized_new = self.NORMALIZE_STATUS.get(new_status, new_status)
+        if normalized_new not in self.VALID_STATUSES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid status '{new_status}'. Allowed statuses: {sorted(list(self.VALID_STATUSES))}",
+            )
+
         booking = await self.booking_repo.get_by_id(booking_id)
         if not booking:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Booking record not found."
             )
-        booking.status = new_status
+
+        allowed = self.ALLOWED_TRANSITIONS.get(booking.status, set())
+        if new_status not in allowed and normalized_new not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot transition appointment from '{booking.status}' to '{new_status}'.",
+            )
+
+        booking.status = normalized_new
         if staff_notes:
             booking.staff_notes = staff_notes
         return await self.booking_repo.save(booking)

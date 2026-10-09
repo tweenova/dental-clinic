@@ -14,6 +14,11 @@ import {
 
 import { useAuth } from "@/components/providers/auth-provider";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import {
+  canAccessWorkspace,
+  homePathForRole,
+  WorkspaceKey,
+} from "@/lib/workspace";
 
 export interface SidebarLink {
   title: string;
@@ -72,10 +77,20 @@ export function SharedDashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
+    if (!isLoading) {
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+      const currentWorkspace = basePath
+        ? (basePath.replace(/^\//, "").split("/")[0] as WorkspaceKey)
+        : null;
+      if (currentWorkspace && !canAccessWorkspace(user.role, currentWorkspace)) {
+        const fallback = homePathForRole(user.role) || "/login";
+        router.push(fallback);
+      }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, basePath]);
 
   // Close mobile drawer on route transition
   useEffect(() => {
@@ -96,6 +111,13 @@ export function SharedDashboardLayout({
   }
 
   if (!user) {
+    return null;
+  }
+
+  const currentWorkspace = basePath
+    ? (basePath.replace(/^\//, "").split("/")[0] as WorkspaceKey)
+    : null;
+  if (currentWorkspace && !canAccessWorkspace(user.role, currentWorkspace)) {
     return null;
   }
 

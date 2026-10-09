@@ -4,9 +4,11 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock
 
-from app.api.deps import get_appointment_repository
+from app.api.deps import get_appointment_repository, get_booking_repository, get_patient_repository
 from app.domain.models.appointment import Appointment
 from app.domain.repositories.appointment_repo import AppointmentRepository
+from app.domain.repositories.booking_repo import BookingRepository
+from app.domain.repositories.patient_repo import PatientRepository
 from app.main import app
 
 
@@ -14,7 +16,15 @@ from app.main import app
 def mock_appointment_repo():
     mock_repo = AsyncMock(spec=AppointmentRepository)
     mock_repo.save.side_effect = lambda apt: apt
+    mock_booking_repo = AsyncMock(spec=BookingRepository)
+    mock_booking_repo.save.side_effect = lambda b: b
+    mock_patient_repo = AsyncMock(spec=PatientRepository)
+    mock_patient_repo.find_duplicates.return_value = []
+    mock_patient_repo.save.side_effect = lambda p: p
+
     app.dependency_overrides[get_appointment_repository] = lambda: mock_repo
+    app.dependency_overrides[get_booking_repository] = lambda: mock_booking_repo
+    app.dependency_overrides[get_patient_repository] = lambda: mock_patient_repo
     yield mock_repo
     app.dependency_overrides.clear()
 

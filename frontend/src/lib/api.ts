@@ -2052,3 +2052,317 @@ export async function updateDoctorBookingNotes(
   return mapBooking(await res.json());
 }
 
+
+/* --- Clinical Encounter & SOAP Notes (Phase 1) --- */
+
+export interface ClinicalEncounter {
+  id: string;
+  patientId: string;
+  clinicianId: string;
+  clinicId?: string | null;
+  bookingId?: string | null;
+  status: string;
+  chiefComplaint?: string | null;
+  reasonForVisit?: string | null;
+  startedAt: string;
+  endedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClinicalSOAPNote {
+  id: string;
+  encounterId: string;
+  patientId: string;
+  authorId: string;
+  clinicId?: string | null;
+  revisionNumber: number;
+  isCurrent: boolean;
+  status: "draft" | "signed" | "amended" | string;
+  subjective?: string | null;
+  objective?: string | null;
+  assessment?: string | null;
+  plan?: string | null;
+  isSigned: boolean;
+  signedAt?: string | null;
+  signedById?: string | null;
+  amendmentReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  historicalStaffNotes?: string | null;
+}
+
+export async function getActiveEncounterByBooking(
+  bookingId: string,
+  token?: string | null
+): Promise<ClinicalEncounter | null> {
+  const res = await authorizedFetch(`/api/v1/doctor/encounters/by-booking/${bookingId}`, {}, token);
+  if (res.status === 404) return null;
+  if (!res.ok) await apiError(res, "Failed to retrieve active encounter.");
+  return res.json();
+}
+
+export async function createClinicalEncounter(
+  data: { patientId: string; bookingId?: string; chiefComplaint?: string; reasonForVisit?: string; status?: string },
+  token?: string | null
+): Promise<ClinicalEncounter> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/encounters`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+  if (!res.ok) await apiError(res, "Failed to initiate clinical encounter.");
+  return res.json();
+}
+
+export async function getEncounterClinicalNote(
+  encounterId: string,
+  token?: string | null
+): Promise<ClinicalSOAPNote | null> {
+  const res = await authorizedFetch(`/api/v1/doctor/encounters/${encounterId}/note`, {}, token);
+  if (res.status === 404) return null;
+  if (!res.ok) await apiError(res, "Failed to load clinical SOAP note.");
+  return res.json();
+}
+
+export async function saveDraftEncounterNote(
+  encounterId: string,
+  data: { subjective?: string; objective?: string; assessment?: string; plan?: string },
+  token?: string | null
+): Promise<ClinicalSOAPNote> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/encounters/${encounterId}/note/draft`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+  if (!res.ok) await apiError(res, "Failed to save draft SOAP note.");
+  return res.json();
+}
+
+export async function signEncounterClinicalNote(
+  encounterId: string,
+  token?: string | null
+): Promise<ClinicalSOAPNote> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/encounters/${encounterId}/note/sign`,
+    {
+      method: "POST",
+    },
+    token
+  );
+  if (!res.ok) await apiError(res, "Failed to sign clinical note.");
+  return res.json();
+}
+
+export async function amendEncounterClinicalNote(
+  encounterId: string,
+  data: { amendmentReason: string; subjective?: string; objective?: string; assessment?: string; plan?: string },
+  token?: string | null
+): Promise<ClinicalSOAPNote> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/encounters/${encounterId}/note/amend`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+  if (!res.ok) await apiError(res, "Failed to amend clinical note.");
+  return res.json();
+}
+
+export async function getEncounterNoteRevisions(
+  encounterId: string,
+  token?: string | null
+): Promise<ClinicalSOAPNote[]> {
+  const res = await authorizedFetch(`/api/v1/doctor/encounters/${encounterId}/note/revisions`, {}, token);
+  if (!res.ok) await apiError(res, "Failed to fetch note revisions.");
+  return res.json();
+}
+
+
+/* --- Dental Charting (Phase 1 Stage 3) --- */
+
+export interface ConditionCatalogItem {
+  value: string;
+  label: string;
+  requiresSurfaces: boolean;
+  toothLevelOnly: boolean;
+}
+
+export interface DentalChartFinding {
+  id: string;
+  patientId: string;
+  encounterId: string;
+  authorId: string;
+  clinicId?: string | null;
+  tooth: string;
+  surfaces: string[];
+  condition: string;
+  conditionLabel: string;
+  status: "active" | "resolved" | string;
+  notes?: string | null;
+  correctionReason?: string | null;
+  correctedById?: string | null;
+  correctedAt?: string | null;
+  resolvedById?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DentalProcedureRecord {
+  id: string;
+  patientId: string;
+  encounterId: string;
+  recordedById: string;
+  serviceId: string;
+  clinicId?: string | null;
+  tooth: string;
+  surfaces: string[];
+  status: "planned" | "in_progress" | "completed" | "cancelled" | string;
+  notes?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  completedById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DentalChartResponse {
+  patientId: string;
+  findings: DentalChartFinding[];
+  procedures: DentalProcedureRecord[];
+  conditionCatalog: ConditionCatalogItem[];
+}
+
+export interface ChartHistoryResponse {
+  patientId: string;
+  findings: DentalChartFinding[];
+  procedures: DentalProcedureRecord[];
+}
+
+export interface EncounterChartResponse {
+  encounterId: string;
+  patientId: string;
+  findings: DentalChartFinding[];
+  procedures: DentalProcedureRecord[];
+}
+
+export async function getPatientDentalChart(
+  patientId: string,
+  token?: string | null
+): Promise<DentalChartResponse> {
+  const res = await authorizedFetch(`/api/v1/doctor/patients/${patientId}/chart`, {}, token);
+  if (!res.ok) await apiError(res, "Failed to load patient dental chart.");
+  return res.json();
+}
+
+export async function getPatientChartHistory(
+  patientId: string,
+  token?: string | null
+): Promise<ChartHistoryResponse> {
+  const res = await authorizedFetch(`/api/v1/doctor/patients/${patientId}/chart/history`, {}, token);
+  if (!res.ok) await apiError(res, "Failed to load chart history.");
+  return res.json();
+}
+
+export async function getEncounterDentalChart(
+  encounterId: string,
+  token?: string | null
+): Promise<EncounterChartResponse> {
+  const res = await authorizedFetch(`/api/v1/doctor/encounters/${encounterId}/chart`, {}, token);
+  if (!res.ok) await apiError(res, "Failed to load encounter chart.");
+  return res.json();
+}
+
+export async function recordDentalFinding(
+  encounterId: string,
+  data: { tooth: string; condition: string; surfaces?: string[]; notes?: string },
+  token?: string | null
+): Promise<DentalChartFinding> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/encounters/${encounterId}/chart/findings`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+  if (!res.ok) await apiError(res, "Failed to record dental finding.");
+  return res.json();
+}
+
+export async function correctDentalFinding(
+  findingId: string,
+  data: { reason: string; condition?: string; surfaces?: string[]; notes?: string },
+  token?: string | null
+): Promise<DentalChartFinding> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/chart/findings/${findingId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+  if (!res.ok) await apiError(res, "Failed to correct dental finding.");
+  return res.json();
+}
+
+export async function resolveDentalFinding(
+  findingId: string,
+  data?: { notes?: string },
+  token?: string | null
+): Promise<DentalChartFinding> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/chart/findings/${findingId}/resolve`,
+    {
+      method: "POST",
+      body: JSON.stringify(data || {}),
+    },
+    token
+  );
+  if (!res.ok) await apiError(res, "Failed to resolve dental finding.");
+  return res.json();
+}
+
+export async function createPlannedProcedure(
+  encounterId: string,
+  data: { tooth: string; serviceId: string; surfaces?: string[]; notes?: string },
+  token?: string | null
+): Promise<DentalProcedureRecord> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/encounters/${encounterId}/chart/procedures`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+  if (!res.ok) await apiError(res, "Failed to add planned procedure.");
+  return res.json();
+}
+
+export async function updateProcedureStatus(
+  procedureId: string,
+  data: { status: string; notes?: string },
+  token?: string | null
+): Promise<DentalProcedureRecord> {
+  const res = await authorizedFetch(
+    `/api/v1/doctor/chart/procedures/${procedureId}/status`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+  if (!res.ok) await apiError(res, "Failed to update procedure status.");
+  return res.json();
+}

@@ -2,27 +2,43 @@
 
 import { useEffect, useState } from "react";
 import {
+  Activity,
+  AlertCircle,
   Calendar,
   CheckCircle,
   Clock,
   Edit,
+  FileCheck,
   FileText,
+  History,
+  Lock,
+  PlusCircle,
   RefreshCw,
   Save,
+  ShieldCheck,
   Stethoscope,
   User,
   X,
 } from "lucide-react";
 
 import {
+  amendEncounterClinicalNote,
+  ClinicalEncounter,
+  ClinicalSOAPNote,
+  createClinicalEncounter,
+  getActiveEncounterByBooking,
   getDoctorSchedule,
+  getEncounterClinicalNote,
+  getEncounterNoteRevisions,
   ReceptionBooking,
-  updateDoctorBookingNotes,
+  saveDraftEncounterNote,
+  signEncounterClinicalNote,
 } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useDirectory } from "@/lib/directory";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DentalChart } from "@/components/doctor/dental-chart";
 
 export default function DoctorDashboardPage() {
   const { accessToken, user } = useAuth();
@@ -32,10 +48,25 @@ export default function DoctorDashboardPage() {
   const [schedule, setSchedule] = useState<ReceptionBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Notes Modal
+  // SOAP Clinical Note & Chart Modal State
   const [selectedBooking, setSelectedBooking] = useState<ReceptionBooking | null>(null);
-  const [notes, setNotes] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const [activeEncounter, setActiveEncounter] = useState<ClinicalEncounter | null>(null);
+  const [currentNote, setCurrentNote] = useState<ClinicalSOAPNote | null>(null);
+  const [revisions, setRevisions] = useState<ClinicalSOAPNote[]>([]);
+  const [showRevisions, setShowRevisions] = useState(false);
+  const [isAmending, setIsAmending] = useState(false);
+  const [activeTab, setActiveTab] = useState<"soap" | "chart">("soap");
+
+  // Form Fields
+  const [subjective, setSubjective] = useState("");
+  const [objective, setObjective] = useState("");
+  const [assessment, setAssessment] = useState("");
+  const [plan, setPlan] = useState("");
+  const [amendmentReason, setAmendmentReason] = useState("");
+
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const loadSchedule = async () => {
     setIsLoading(true);
@@ -53,19 +84,153 @@ export default function DoctorDashboardPage() {
     loadSchedule();
   }, [date, accessToken]);
 
-  const handleSaveNotes = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedBooking) return;
+  const handleOpenSoapModal = async (booking: ReceptionBooking) => {
+    setSelectedBooking(booking);
+    setActiveTab("soap");
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setShowRevisions(false);
+    setIsAmending(false);
+    setIsActionLoading(true);
 
-    setIsSaving(true);
     try {
-      await updateDoctorBookingNotes(selectedBooking.id, notes, accessToken);
-      setSelectedBooking(null);
+      // 1. Get or create active encounter for this booking
+      let enc = await getActiveEncounterByBooking(booking.id, accessToken);
+      if (!enc) {
+        enc = await createClinicalEncounter(
+          {
+            patientId: booking.patientId || "",
+            bookingId: booking.id,
+            chiefComplaint: booking.notes || "Scheduled appointment visit",
+            reasonForVisit: directory.serviceName(booking.serviceId) || "Clinical Visit",
+            status: "in_progress",
+          },
+          accessToken
+        );
+      }
+      setActiveEncounter(enc);
+
+      // 2. Fetch current note if exists
+      const note = await getEncounterClinicalNote(enc.id, accessToken);
+      setCurrentNote(note);
+
+      if (note) {
+        setSubjective(note.subjective || "");
+        setObjective(note.objective || "");
+        setAssessment(note.assessment || "");
+        setPlan(note.plan || "");
+      } else {
+        // Initialize from booking intake notes
+        setSubjective(booking.notes ? `Intake complaint: ${booking.notes}` : "");
+        setObjective("");
+        setAssessment("");
+        setPlan("");
+      }
+
+      // 3. Load revision history
+      const revs = await getEncounterNoteRevisions(enc.id, accessToken);
+      setRevisions(revs);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to load clinical encounter.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleSaveDraft = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeEncounter) return;
+
+    setIsActionLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const updated = await saveDraftEncounterNote(
+        activeEncounter.id,
+        { subjective, objective, assessment, plan },
+        accessToken
+      );
+      setCurrentNote(updated);
+      setSuccessMsg("Draft saved successfully.");
+      const revs = await getEncounterNoteRevisions(activeEncounter.id, accessToken);
+      setRevisions(revs);
       await loadSchedule();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to update clinical notes.");
+      setErrorMsg(err instanceof Error ? err.message : "Failed to save draft.");
     } finally {
-      setIsSaving(false);
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleSignNote = async () => {
+    if (!activeEncounter) return;
+    if (!confirm("Are you sure you want to sign this clinical note? Signed notes are locked and can only be amended with a recorded clinical rationale.")) {
+      return;
+    }
+
+    setIsActionLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      // First save current content if draft
+      if (!currentNote || !currentNote.isSigned) {
+        await saveDraftEncounterNote(
+          activeEncounter.id,
+          { subjective, objective, assessment, plan },
+          accessToken
+        );
+      }
+      const signed = await signEncounterClinicalNote(activeEncounter.id, accessToken);
+      setCurrentNote(signed);
+      setSuccessMsg("Clinical note electronically signed and locked.");
+      const revs = await getEncounterNoteRevisions(activeEncounter.id, accessToken);
+      setRevisions(revs);
+      await loadSchedule();
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to sign note.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleAmendNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeEncounter) return;
+
+    if (!amendmentReason.trim()) {
+      setErrorMsg("Please provide a clinical rationale for amending this signed note.");
+      return;
+    }
+
+    setIsActionLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const amended = await amendEncounterClinicalNote(
+        activeEncounter.id,
+        {
+          amendmentReason,
+          subjective,
+          objective,
+          assessment,
+          plan,
+        },
+        accessToken
+      );
+      setCurrentNote(amended);
+      setIsAmending(false);
+      setAmendmentReason("");
+      setSuccessMsg(`Revision ${amended.revisionNumber} saved and signed.`);
+      const revs = await getEncounterNoteRevisions(activeEncounter.id, accessToken);
+      setRevisions(revs);
+      await loadSchedule();
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to create amendment.");
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
@@ -79,7 +244,7 @@ export default function DoctorDashboardPage() {
             Welcome, {user?.fullName}
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-ink-soft">
-            View assigned patient procedures, treatment status, and manage clinical visit notes.
+            Structured SOAP clinical encounters, dental charting, and signed patient records.
           </p>
         </div>
 
@@ -123,7 +288,7 @@ export default function DoctorDashboardPage() {
                   <th className="px-5 py-3.5">Patient</th>
                   <th className="px-5 py-3.5">Procedure</th>
                   <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5">Clinical Notes</th>
+                  <th className="px-5 py-3.5">Clinical Note</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -160,20 +325,26 @@ export default function DoctorDashboardPage() {
                         {b.status.replace("_", " ")}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-ink-soft max-w-xs truncate">
-                      {b.notes || <span className="text-ink-soft/50 italic">No notes entered</span>}
+                    <td className="px-5 py-4 text-ink-soft max-w-xs">
+                      {b.staffNotes ? (
+                        <p className="truncate font-medium text-ink">{b.staffNotes}</p>
+                      ) : (
+                        <span className="text-ink-soft/50 italic">SOAP Encounter available</span>
+                      )}
+                      {b.notes && (
+                        <p className="text-[10px] text-ink-soft/70 truncate mt-0.5" title={`Patient intake: ${b.notes}`}>
+                          Intake: {b.notes}
+                        </p>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-right">
                       <Button
-                        variant="secondary"
+                        variant="primary"
                         size="sm"
-                        onClick={() => {
-                          setSelectedBooking(b);
-                          setNotes(b.notes || "");
-                        }}
+                        onClick={() => handleOpenSoapModal(b)}
                       >
-                        <Edit className="h-3 w-3 mr-1.5" />
-                        <span>Clinical Notes</span>
+                        <FileText className="h-3 w-3 mr-1.5" />
+                        <span>SOAP Encounter</span>
                       </Button>
                     </td>
                   </tr>
@@ -184,63 +355,336 @@ export default function DoctorDashboardPage() {
         )}
       </Card>
 
-      {/* Clinical Notes Modal */}
+      {/* Clinical Encounter Workspace Modal (SOAP + Dental Odontogram) */}
       {selectedBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-line bg-bone p-6 shadow-modal space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-line">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in overflow-y-auto">
+          <div className="w-full max-w-5xl rounded-2xl border border-line bg-bone p-6 shadow-modal space-y-5 my-8">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-line">
               <div>
-                <p className="eyebrow mb-0.5">Patient Chart Note</p>
-                <h2 className="text-base font-display text-ink font-semibold">
+                <div className="flex items-center gap-2">
+                  <span className="eyebrow">Clinical Encounter</span>
+                  {currentNote?.isSigned ? (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[10px] font-semibold flex items-center gap-1">
+                      <ShieldCheck className="h-3 w-3" />
+                      Signed (Rev {currentNote.revisionNumber})
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-mono text-[10px] font-semibold flex items-center gap-1">
+                      <Edit className="h-3 w-3" />
+                      Draft In Progress
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-lg font-display text-ink font-semibold mt-1">
                   {selectedBooking.patientName}
                 </h2>
                 <p className="text-xs text-ink-soft font-mono">
-                  {selectedBooking.bookingDate} at {selectedBooking.bookingTime}
+                  {selectedBooking.bookingDate} at {selectedBooking.bookingTime} &bull; Procedure: {directory.serviceName(selectedBooking.serviceId) || "Clinical Examination"}
                 </p>
               </div>
+
+              <div className="flex items-center gap-2">
+                {activeTab === "soap" && revisions.length > 1 && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowRevisions(!showRevisions)}
+                  >
+                    <History className="h-3.5 w-3.5 mr-1" />
+                    <span>Revisions ({revisions.length})</span>
+                  </Button>
+                )}
+                <button
+                  onClick={() => setSelectedBooking(null)}
+                  className="p-1.5 rounded-full text-ink-soft hover:text-ink hover:bg-sand"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Workspace Navigation Tabs */}
+            <div className="flex border-b border-line gap-2">
               <button
-                onClick={() => setSelectedBooking(null)}
-                className="p-1 rounded-full text-ink-soft hover:text-ink hover:bg-sand"
+                type="button"
+                onClick={() => setActiveTab("soap")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+                  activeTab === "soap"
+                    ? "border-primary text-primary font-bold bg-sand/30 rounded-t-lg"
+                    : "border-transparent text-ink-soft hover:text-ink"
+                }`}
               >
-                <X className="h-5 w-5" />
+                <FileText className="h-4 w-4" />
+                <span>SOAP Clinical Notes</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("chart")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+                  activeTab === "chart"
+                    ? "border-primary text-primary font-bold bg-sand/30 rounded-t-lg"
+                    : "border-transparent text-ink-soft hover:text-ink"
+                }`}
+              >
+                <Activity className="h-4 w-4" />
+                <span>Dental Odontogram & Treatment Plan</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveNotes} className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-semibold text-ink">
-                  Clinical Observations & Treatment Notes *
-                </label>
-                <textarea
-                  rows={5}
-                  required
-                  placeholder="Record treatment performed, materials used, next recommended recall..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-line bg-cream text-ink font-sans leading-relaxed focus:border-primary"
-                />
+            {/* Notifications */}
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{errorMsg}</span>
               </div>
+            )}
+            {successMsg && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                <span>{successMsg}</span>
+              </div>
+            )}
 
-              <div className="pt-2 flex justify-end gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  type="button"
-                  onClick={() => setSelectedBooking(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  type="submit"
-                  disabled={isSaving}
-                >
-                  <Save className="h-3.5 w-3.5 mr-1.5" />
-                  <span>{isSaving ? "Saving..." : "Save Notes"}</span>
-                </Button>
+            {/* Tab 1: SOAP Clinical Notes */}
+            {activeTab === "soap" && (
+              <div className="space-y-4">
+                {/* Revision History Viewer */}
+                {showRevisions && (
+                  <div className="p-4 rounded-xl bg-sand/60 border border-line space-y-3">
+                    <h3 className="font-mono text-xs font-semibold uppercase text-ink flex items-center gap-1.5">
+                      <History className="h-3.5 w-3.5" />
+                      Encounter Note Audit History
+                    </h3>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {revisions.map((rev) => (
+                        <div
+                          key={rev.id}
+                          className={`p-3 rounded-lg border text-xs space-y-1 ${
+                            rev.isCurrent
+                              ? "bg-white border-primary/30 shadow-subtle"
+                              : "bg-bone/80 border-line text-ink-soft"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-mono text-[10px]">
+                            <span className="font-bold text-ink">
+                              Revision {rev.revisionNumber} {rev.isCurrent && "(Current)"}
+                            </span>
+                            <span>{new Date(rev.createdAt).toLocaleString()}</span>
+                          </div>
+                          {rev.amendmentReason && (
+                            <p className="text-amber-800 bg-amber-50 p-1.5 rounded font-mono text-[10px]">
+                              <strong>Rationale:</strong> {rev.amendmentReason}
+                            </p>
+                          )}
+                          <p className="line-clamp-2 text-ink">
+                            <strong>A:</strong> {rev.assessment || "N/A"} &bull; <strong>P:</strong> {rev.plan || "N/A"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Historical Staff Notes / Intake Context */}
+                {(selectedBooking.notes || currentNote?.historicalStaffNotes) && (
+                  <div className="p-3 rounded-xl bg-sand/40 border border-line text-xs space-y-1">
+                    {selectedBooking.notes && (
+                      <p className="text-ink-soft">
+                        <strong className="font-mono text-[10px] text-ink uppercase">Patient Intake:</strong> {selectedBooking.notes}
+                      </p>
+                    )}
+                    {currentNote?.historicalStaffNotes && (
+                      <p className="text-ink-soft">
+                        <strong className="font-mono text-[10px] text-ink uppercase">Legacy Chart Notes:</strong> {currentNote.historicalStaffNotes}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Structured 4-Section SOAP Form */}
+                <form onSubmit={isAmending ? handleAmendNote : handleSaveDraft} className="space-y-4 text-xs">
+                  {isAmending && (
+                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+                      <label className="font-semibold text-amber-900 flex items-center gap-1.5">
+                        <Edit className="h-3.5 w-3.5" />
+                        Clinical Amendment Rationale (Required) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g., Corrected diagnostic classification following second radiograph..."
+                        value={amendmentReason}
+                        onChange={(e) => setAmendmentReason(e.target.value)}
+                        className="w-full p-2.5 rounded-lg border border-amber-300 bg-white text-ink text-xs focus:border-amber-600"
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Subjective */}
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-ink flex items-center justify-between">
+                        <span>Subjective (Symptoms & History)</span>
+                        <span className="font-mono text-[10px] text-ink-soft font-normal">Patient-reported</span>
+                      </label>
+                      <textarea
+                        rows={4}
+                        disabled={currentNote?.isSigned && !isAmending}
+                        placeholder="Chief complaint, pain scale, medical history updates, onset, triggers..."
+                        value={subjective}
+                        onChange={(e) => setSubjective(e.target.value)}
+                        className="w-full p-3 rounded-xl border border-line bg-cream text-ink font-sans leading-relaxed focus:border-primary disabled:opacity-80"
+                      />
+                    </div>
+
+                    {/* Objective */}
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-ink flex items-center justify-between">
+                        <span>Objective (Examination Findings)</span>
+                        <span className="font-mono text-[10px] text-ink-soft font-normal">Clinical observation</span>
+                      </label>
+                      <textarea
+                        rows={4}
+                        disabled={currentNote?.isSigned && !isAmending}
+                        placeholder="Visual exam, periodontal probing, vitality tests, radiographic findings..."
+                        value={objective}
+                        onChange={(e) => setObjective(e.target.value)}
+                        className="w-full p-3 rounded-xl border border-line bg-cream text-ink font-sans leading-relaxed focus:border-primary disabled:opacity-80"
+                      />
+                    </div>
+
+                    {/* Assessment */}
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-ink flex items-center justify-between">
+                        <span>Assessment (Diagnoses)</span>
+                        <span className="font-mono text-[10px] text-ink-soft font-normal">Clinical diagnosis</span>
+                      </label>
+                      <textarea
+                        rows={4}
+                        disabled={currentNote?.isSigned && !isAmending}
+                        placeholder="Diagnosis, disease stage, prognosis, tooth-specific conditions..."
+                        value={assessment}
+                        onChange={(e) => setAssessment(e.target.value)}
+                        className="w-full p-3 rounded-xl border border-line bg-cream text-ink font-sans leading-relaxed focus:border-primary disabled:opacity-80"
+                      />
+                    </div>
+
+                    {/* Plan */}
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-ink flex items-center justify-between">
+                        <span>Plan (Treatment & Next Steps)</span>
+                        <span className="font-mono text-[10px] text-ink-soft font-normal">Care plan</span>
+                      </label>
+                      <textarea
+                        rows={4}
+                        disabled={currentNote?.isSigned && !isAmending}
+                        placeholder="Procedures completed today, prescriptions, recall schedule, post-op instructions..."
+                        value={plan}
+                        onChange={(e) => setPlan(e.target.value)}
+                        className="w-full p-3 rounded-xl border border-line bg-cream text-ink font-sans leading-relaxed focus:border-primary disabled:opacity-80"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="pt-3 border-t border-line flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      {currentNote?.isSigned && !isAmending && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          type="button"
+                          onClick={() => setIsAmending(true)}
+                        >
+                          <Edit className="h-3.5 w-3.5 mr-1.5" />
+                          <span>Create Amendment</span>
+                        </Button>
+                      )}
+                      {isAmending && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          type="button"
+                          onClick={() => setIsAmending(false)}
+                        >
+                          <span>Cancel Amendment</span>
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        onClick={() => setSelectedBooking(null)}
+                      >
+                        Close
+                      </Button>
+
+                      {(!currentNote?.isSigned || isAmending) && (
+                        <>
+                          {!isAmending && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              type="submit"
+                              disabled={isActionLoading}
+                            >
+                              <Save className="h-3.5 w-3.5 mr-1.5" />
+                              <span>{isActionLoading ? "Saving..." : "Save Draft"}</span>
+                            </Button>
+                          )}
+
+                          {isAmending ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              type="submit"
+                              disabled={isActionLoading}
+                            >
+                              <FileCheck className="h-3.5 w-3.5 mr-1.5" />
+                              <span>{isActionLoading ? "Saving..." : "Save & Sign Amendment"}</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              type="button"
+                              onClick={handleSignNote}
+                              disabled={isActionLoading}
+                            >
+                              <Lock className="h-3.5 w-3.5 mr-1.5" />
+                              <span>{isActionLoading ? "Signing..." : "Sign & Lock Note"}</span>
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </form>
               </div>
-            </form>
+            )}
+
+            {/* Tab 2: Dental Odontogram & Charting */}
+            {activeTab === "chart" && (
+              <div className="pt-1">
+                {activeEncounter ? (
+                  <DentalChart
+                    patientId={activeEncounter.patientId || selectedBooking.patientId || ""}
+                    patientName={selectedBooking.patientName || "Patient"}
+                    encounterId={activeEncounter.id}
+                    token={accessToken}
+                    onUpdate={loadSchedule}
+                  />
+                ) : (
+                  <div className="p-8 text-center text-ink-soft font-mono text-xs">
+                    Initializing encounter chart...
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

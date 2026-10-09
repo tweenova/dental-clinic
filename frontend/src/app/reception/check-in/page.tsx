@@ -63,9 +63,13 @@ export default function ReceptionCheckInPage() {
     }
   };
 
-  const waitingPatients = bookings.filter((b) => b.status === "arrived");
+  const waitingPatients = bookings.filter(
+    (b) => b.status === "arrived" || b.status === "checked_in" || b.status === "waiting"
+  );
   const inProgressPatients = bookings.filter((b) => b.status === "in_progress");
-  const scheduledUpcoming = bookings.filter((b) => b.status === "scheduled");
+  const scheduledUpcoming = bookings.filter(
+    (b) => b.status === "confirmed" || b.status === "scheduled"
+  );
   const completedPatients = bookings.filter((b) => b.status === "completed");
 
   return (

@@ -251,7 +251,7 @@ export default function ReceptionAppointmentsPage() {
                           </button>
                         )}
 
-                        {b.status === "scheduled" && (
+                        {(b.status === "confirmed" || b.status === "scheduled") && (
                           <button
                             onClick={() => handleStatusChange(b.id, "arrived")}
                             className="px-3 py-1 rounded-full bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 transition-colors cursor-pointer"
@@ -260,7 +260,7 @@ export default function ReceptionAppointmentsPage() {
                           </button>
                         )}
 
-                        {b.status === "arrived" && (
+                        {(b.status === "arrived" || b.status === "checked_in" || b.status === "waiting") && (
                           <button
                             onClick={() => handleStatusChange(b.id, "in_progress")}
                             className="px-3 py-1 rounded-full bg-clay text-white text-[11px] font-medium hover:bg-clay/90 transition-colors cursor-pointer"

@@ -363,7 +363,7 @@ export default function ReceptionSchedulePage() {
                           </button>
                         )}
 
-                        {b.status === "scheduled" && (
+                        {(b.status === "confirmed" || b.status === "scheduled") && (
                           <button
                             onClick={() => handleStatusUpdate(b.id, "arrived")}
                             className="px-2.5 py-1 rounded-full bg-primary text-white text-[11px] font-medium hover:bg-primary/90 shadow-xs transition-colors"

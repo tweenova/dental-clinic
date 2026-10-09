@@ -86,8 +86,12 @@ class PostgresTaskRepository(TaskRepository):
             stmt = stmt.where(TaskORM.assigned_to_user_id == assigned_to_user_id)
             count_stmt = count_stmt.where(TaskORM.assigned_to_user_id == assigned_to_user_id)
         if status:
-            stmt = stmt.where(TaskORM.status == status)
-            count_stmt = count_stmt.where(TaskORM.status == status)
+            if status in ("open", "pending"):
+                stmt = stmt.where(TaskORM.status.in_(["pending", "open"]))
+                count_stmt = count_stmt.where(TaskORM.status.in_(["pending", "open"]))
+            else:
+                stmt = stmt.where(TaskORM.status == status)
+                count_stmt = count_stmt.where(TaskORM.status == status)
         if priority:
             stmt = stmt.where(TaskORM.priority == priority)
             count_stmt = count_stmt.where(TaskORM.priority == priority)

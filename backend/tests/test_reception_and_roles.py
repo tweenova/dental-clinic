@@ -200,6 +200,7 @@ async def test_doctor_schedule_and_notes(doctor_auth, test_session):
         patient_phone="3125550188",
         patient_email="grace@example.com",
         status="confirmed",
+        team_member_id=doctor_auth["team_member"].id,
     )
     saved = await booking_repo.save(b)
     await test_session.commit()

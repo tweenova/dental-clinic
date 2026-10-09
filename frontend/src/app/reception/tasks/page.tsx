@@ -89,7 +89,7 @@ export default function ReceptionTasksPage() {
     }
   };
 
-  const handleStatusChange = async (taskId: string, newStatus: "open" | "in_progress" | "completed" | "cancelled") => {
+  const handleStatusChange = async (taskId: string, newStatus: "pending" | "open" | "in_progress" | "completed" | "cancelled") => {
     try {
       await updateReceptionTask(taskId, { status: newStatus }, accessToken);
       await loadTasks();
@@ -185,7 +185,7 @@ export default function ReceptionTasksPage() {
                     onClick={() =>
                       handleStatusChange(
                         task.id,
-                        task.status === "completed" ? "open" : "completed"
+                        task.status === "completed" ? "pending" : "completed"
                       )
                     }
                     className={`mt-0.5 grid h-5 w-5 place-items-center rounded-md border transition-colors cursor-pointer ${
