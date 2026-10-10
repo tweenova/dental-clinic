@@ -1,9 +1,13 @@
 import argparse
 import asyncio
 import getpass
+import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import select
 
@@ -415,24 +419,215 @@ async def seed_data_cmd():
                 )
                 print(f"Seeded CMS Section into DB: {sec_key}")
 
-        # 8. Platform Roles
-        platform_roles = [
-            ("Platform Owner", "Full platform administration across all clinics and organizations"),
-            ("Super Admin", "High-level organization and branch management"),
-            ("Clinic Branch Manager", "Operational branch manager with team, slot, and lead management"),
-            ("Doctor", "Clinical practitioner with appointment, slot, and patient access"),
-            ("Receptionist", "Front-desk personnel with lead, booking, and check-in access"),
-        ]
-        for role_name, description in platform_roles:
-            stmt = select(RoleORM).where(RoleORM.name == role_name)
-            res = await session.execute(stmt)
-            if not res.scalar_one_or_none():
-                session.add(RoleORM(name=role_name, description=description, is_system=True))
-                print(f"Seeded Platform Role: {role_name}")
+        # 9. Development Seed Accounts & Operational Data
+        await seed_dev_users_internal(session)
 
         await session.commit()
         print("Database seed completed successfully.")
     await close_db()
+
+
+async def seed_dev_users_internal(session):
+    import os
+    from datetime import date, timedelta
+    from app.infrastructure.database.orm_models import (
+        BookingORM,
+        ClinicORM,
+        LeadORM,
+        LeadSourceORM,
+        MessageORM,
+        PatientORM,
+        TaskORM,
+        TeamMemberORM,
+        UserORM,
+    )
+    from app.core.security import hash_password
+
+    # 1. Fetch primary clinic
+    clinic_stmt = select(ClinicORM).order_by(ClinicORM.display_order.asc())
+    clinic_res = await session.execute(clinic_stmt)
+    primary_clinic = clinic_res.scalars().first()
+    clinic_id = primary_clinic.id if primary_clinic else None
+
+    # 2. Seed Admin User
+    admin_email = os.environ.get("DEV_ADMIN_EMAIL", "admin@marlowdental.com").strip().lower()
+    admin_pwd = os.environ.get("DEV_ADMIN_PASSWORD", "admin123456")
+    admin_stmt = select(UserORM).where(UserORM.email == admin_email)
+    admin_res = await session.execute(admin_stmt)
+    existing_admin = admin_res.scalar_one_or_none()
+    if not existing_admin:
+        session.add(
+            UserORM(
+                email=admin_email,
+                hashed_password=hash_password(admin_pwd),
+                full_name="Dr. Sarah Marlow",
+                role="admin",
+                clinic_id=clinic_id,
+                is_active=True,
+            )
+        )
+        print(f"Seeded Dev Admin: {admin_email}")
+
+    # 3. Seed Receptionist User
+    rec_email = os.environ.get("DEV_RECEPTIONIST_EMAIL", "receptionist@marlowdental.com").strip().lower()
+    rec_pwd = os.environ.get("DEV_RECEPTIONIST_PASSWORD", "receptionist123456")
+    rec_stmt = select(UserORM).where(UserORM.email == rec_email)
+    rec_res = await session.execute(rec_stmt)
+    existing_rec = rec_res.scalar_one_or_none()
+    if not existing_rec:
+        session.add(
+            UserORM(
+                email=rec_email,
+                hashed_password=hash_password(rec_pwd),
+                full_name="Jessica Reynolds",
+                role="receptionist",
+                clinic_id=clinic_id,
+                is_active=True,
+            )
+        )
+        print(f"Seeded Dev Receptionist: {rec_email}")
+
+    # 4. Seed Doctor User
+    doc_email = os.environ.get("DEV_DOCTOR_EMAIL", "doctor@marlowdental.com").strip().lower()
+    doc_pwd = os.environ.get("DEV_DOCTOR_PASSWORD", "doctor123456")
+    doc_stmt = select(UserORM).where(UserORM.email == doc_email)
+    doc_res = await session.execute(doc_stmt)
+    existing_doc = doc_res.scalar_one_or_none()
+    if not existing_doc:
+        session.add(
+            UserORM(
+                email=doc_email,
+                hashed_password=hash_password(doc_pwd),
+                full_name="Dr. Marcus Vance",
+                role="doctor",
+                clinic_id=clinic_id,
+                is_active=True,
+            )
+        )
+        print(f"Seeded Dev Doctor: {doc_email}")
+
+    await session.flush()
+
+    # 5. Seed Sample Patients if empty
+    pat_stmt = select(PatientORM)
+    pat_res = await session.execute(pat_stmt)
+    patients = pat_res.scalars().all()
+    if not patients:
+        sample_patients = [
+            ("Eleanor", "Pemberton", "(312) 555-0191", "eleanor.p@example.com", date(1988, 4, 12), "Prefers morning appointments."),
+            ("Arthur", "Pendelton", "(312) 555-0192", "arthur.p@example.com", date(1975, 11, 23), "Mild dental anxiety; gentle care required."),
+            ("Sophia", "Martinez", "(312) 555-0193", "sophia.m@example.com", date(1994, 7, 5), "Interested in clear aligners consult."),
+            ("David", "Kim", "(312) 555-0194", "david.k@example.com", date(1982, 1, 30), "Annual cleaning and diagnostic check."),
+            ("Clara", "Oswald", "(312) 555-0195", "clara.o@example.com", date(1990, 9, 14), "Follow-up for restorative filling."),
+        ]
+        created_pats = []
+        for fn, ln, ph, em, dob, notes in sample_patients:
+            p = PatientORM(
+                first_name=fn,
+                last_name=ln,
+                phone=ph,
+                email=em,
+                date_of_birth=dob,
+                clinic_id=clinic_id,
+                notes=notes,
+                is_active=True,
+            )
+            session.add(p)
+            created_pats.append(p)
+        await session.flush()
+        patients = created_pats
+        print(f"Seeded {len(patients)} development patients.")
+
+    # 6. Seed Sample Bookings if empty
+    book_stmt = select(BookingORM)
+    book_res = await session.execute(book_stmt)
+    bookings = book_res.scalars().all()
+    if not bookings and patients:
+        today = datetime.now(timezone.utc).date()
+        doc_stmt = select(TeamMemberORM).where(TeamMemberORM.is_active.is_(True))
+        doc_res = await session.execute(doc_stmt)
+        team_members = doc_res.scalars().all()
+        tm_id = team_members[0].id if team_members else None
+
+        sample_bookings = [
+            ("BK-2026-1001", today, "8:30 AM", "confirmed", patients[0], "cleanings-exams", "Confirmed via SMS reminder."),
+            ("BK-2026-1002", today, "10:00 AM", "checked_in", patients[1], "fillings-crowns", "Patient arrived at 9:55 AM. Waiting in lounge."),
+            ("BK-2026-1003", today, "11:30 AM", "requested", patients[2], "invisalign", "Requested callback before appointment."),
+            ("BK-2026-1004", today, "1:30 PM", "in_progress", patients[3], "cleanings-exams", "In chair with hygienist."),
+            ("BK-2026-1005", today, "3:00 PM", "confirmed", patients[4], "emergency", "Same-day triage for tooth sensitivity."),
+            ("BK-2026-1006", today + timedelta(days=1), "10:00 AM", "requested", patients[0], "cleanings-exams", "Upcoming routine care."),
+            ("BK-2026-1007", today + timedelta(days=2), "11:30 AM", "confirmed", patients[1], "whitening", "Whitening custom tray fitting."),
+        ]
+        for cid, bdate, btime, bstatus, pat, s_id, snotes in sample_bookings:
+            b = BookingORM(
+                confirmation_id=cid,
+                clinic_id=clinic_id,
+                patient_id=pat.id,
+                service_id=s_id,
+                team_member_id=tm_id,
+                preferred_date=bdate,
+                preferred_time=btime,
+                status=bstatus,
+                patient_full_name=f"{pat.first_name} {pat.last_name}",
+                patient_phone=pat.phone,
+                patient_email=pat.email or "",
+                staff_notes=snotes,
+            )
+            session.add(b)
+        print("Seeded development operational bookings.")
+
+    # 7. Seed Sample Tasks if empty
+    task_stmt = select(TaskORM)
+    task_res = await session.execute(task_stmt)
+    if not task_res.scalars().all():
+        sample_tasks = [
+            ("Call Eleanor Pemberton for insurance card verification", "urgent", "pending"),
+            ("Confirm tomorrow's 10:00 AM whitening consultation with Arthur", "high", "pending"),
+            ("Follow up on unconfirmed appointment request for Sophia Martinez", "medium", "pending"),
+            ("Order autoclave sterilization pouches and dental bibs", "low", "completed"),
+        ]
+        for title, prio, st in sample_tasks:
+            session.add(
+                TaskORM(
+                    title=title,
+                    priority=prio,
+                    status=st,
+                    clinic_id=clinic_id,
+                )
+            )
+        print("Seeded development operational tasks.")
+
+    # 8. Seed Sample Leads if empty
+    lead_stmt = select(LeadORM)
+    lead_res = await session.execute(lead_stmt)
+    if not lead_res.scalars().all():
+        ls_stmt = select(LeadSourceORM)
+        ls_res = await session.execute(ls_stmt)
+        sources = ls_res.scalars().all()
+        source_id = sources[0].id if sources else None
+        if not source_id:
+            ls = LeadSourceORM(name="Website Direct", utm_source="website", is_active=True)
+            session.add(ls)
+            await session.flush()
+            source_id = ls.id
+
+        sample_leads = [
+            ("Jameson Vance", "(312) 555-0181", "jameson.v@example.com", "new", "Interested in adult Invisalign treatment."),
+            ("Natalie Wood", "(312) 555-0182", "natalie.w@example.com", "contacted", "Looking for new family dentist in Lincoln Park."),
+        ]
+        for fn, ph, em, st, notes in sample_leads:
+            session.add(
+                LeadORM(
+                    full_name=fn,
+                    phone=ph,
+                    email=em,
+                    status=st,
+                    notes=notes,
+                    clinic_id=clinic_id,
+                    lead_source_id=source_id,
+                )
+            )
+        print("Seeded development marketing leads.")
 
 
 def main():
@@ -447,6 +642,9 @@ def main():
 
     # seed
     subparsers.add_parser("seed", help="Seed initial organization, location, services, and team data")
+
+    # seed-dev-users
+    subparsers.add_parser("seed-dev-users", help="Idempotently seed development admin, receptionist, and doctor users")
 
     # bootstrap
     boot_parser = subparsers.add_parser("bootstrap", help="Seed data and create admin account in one operation")
@@ -463,6 +661,9 @@ def main():
         asyncio.run(create_admin_cmd(args.email, pwd, args.name))
 
     elif args.command == "seed":
+        asyncio.run(seed_data_cmd())
+
+    elif args.command == "seed-dev-users":
         asyncio.run(seed_data_cmd())
 
     elif args.command == "bootstrap":

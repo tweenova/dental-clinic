@@ -68,17 +68,20 @@ backend/
 │               ├── admin_team.py   # Admin team member CRUD & active toggling
 │               ├── admin_services.py # Admin services CRUD & active toggling
 │               ├── admin_organization.py # Admin organization & location management
-│               └── admin_media.py  # Local media upload with validation
+│               ├── admin_media.py  # Local media upload with validation
+│               ├── reception.py    # Front-desk dashboard, schedule, bookings, patients, tasks, leads, messages, recalls
+│               └── doctor.py       # Doctor schedule & clinical visit notes
 ├── alembic/
 │   ├── versions/
 │   │   ├── 0001_initial_appointments.py # Initial migration creating appointments table
 │   │   ├── 0002_admin_auth_and_clinic_cms.py # Admin auth, CMS, team, services, locations
-│   │   └── 0003_sessions_inactivity.py # Server sessions, inactivity configs, rotation grace
+│   │   ├── 0003_sessions_inactivity.py # Server sessions, inactivity configs, rotation grace
+│   │   └── d1f1356f1a35_organization_scaling_erd.py # Complete 25-table scaling ERD
 │   ├── env.py                      # Async SQLAlchemy Alembic migration runner
 │   └── script.py.mako
 ├── alembic.ini
 ├── tests/
-│   ├── conftest.py                 # SQLite test client fixtures and mock session
+│   ├── conftest.py                 # SQLite test client fixtures, mock session, reception & doctor auth
 │   ├── test_health.py              # Health endpoint and DB degradation tests
 │   ├── test_domain.py              # Domain entity & status transition tests
 │   ├── test_repository.py          # Relational persistence & unique constraint tests
@@ -88,7 +91,8 @@ backend/
 │   ├── test_auth.py                # Login, 7d tokens, 35m rotation, grace period, sessions, inactivity
 │   ├── test_team.py                # Admin team CRUD and soft deletion tests
 │   ├── test_services.py            # Admin services CRUD and soft deletion tests
-│   └── test_cms.py                 # CMS site sections and FAQ management tests
+│   ├── test_cms.py                 # CMS site sections and FAQ management tests
+│   └── test_reception_and_roles.py # Reception dashboard, RBAC, deduplication, tasks, leads, doctor notes
 ├── .env.example
 ├── requirements.txt
 └── README.md
