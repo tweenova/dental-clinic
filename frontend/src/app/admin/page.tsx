@@ -1,205 +1,378 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   ArrowRight,
-  CheckCircle2,
-  Database,
+  Bell,
   Globe,
   Layers,
+  ListTodo,
+  Mail,
   MapPin,
-  ShieldCheck,
+  RefreshCw,
+  UserX,
   Users,
 } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/components/providers/auth-provider";
 import {
-  adminGetFaqs,
+  adminGetAnnouncements,
   adminGetServices,
   adminGetTeam,
+  Announcement,
   getLocations,
-  getSiteContent,
+  getReceptionDashboard,
+  ReceptionDashboardStats,
+  ServiceItem,
+  TeamMember,
 } from "@/lib/api";
+import { useDirectory } from "@/lib/directory";
+import { useAuth } from "@/components/providers/auth-provider";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { Panel } from "@/components/dashboard/panel";
+import { StatusBadge } from "@/components/dashboard/status-badge";
+import { EmptyState, ErrorState, LoadingState } from "@/components/dashboard/states";
+import { Button } from "@/components/ui/button";
 
+interface AdminOverview {
+  operations: ReceptionDashboardStats | null;
+  activeServices: number;
+  activeTeam: number;
+  locationCount: number;
+  activeAnnouncements: number;
+}
+
+/**
+ * Admin dashboard: clinic-wide operational visibility (today's appointments,
+ * queues and follow-ups from the same real dashboard endpoint the
+ * front desk uses, since the backend grants admin the reception scope)
+ * plus practice configuration counts from the admin CMS endpoints.
+ */
 export default function AdminOverviewPage() {
   const { user, accessToken } = useAuth();
-  const [stats, setStats] = useState({
-    servicesCount: 0,
-    teamCount: 0,
-    faqsCount: 0,
-    practiceName: "Marlow Dental",
-    primaryLocation: "Lincoln Park, Chicago",
-  });
+  const directory = useDirectory();
+
+  const [data, setData] = useState<AdminOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadOverview = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    else setIsRefreshing(true);
+    setError(null);
+    try {
+      const [ops, services, team, locations, announcements] = await Promise.allSettled([
+        getReceptionDashboard(accessToken),
+        adminGetServices(accessToken ?? undefined),
+        adminGetTeam(accessToken ?? undefined),
+        getLocations(),
+        adminGetAnnouncements(accessToken),
+      ]);
+
+      if (ops.status === "rejected") {
+        throw ops.reason instanceof Error
+          ? ops.reason
+          : new Error("Failed to load clinic operations data.");
+      }
+
+      const activeCount = <T extends { isActive?: boolean }>(items: T[] | null) =>
+        Array.isArray(items) ? items.filter((item) => item.isActive !== false).length : 0;
+
+      setData({
+        operations: ops.value,
+        activeServices: activeCount(
+          services.status === "fulfilled" ? (services.value as ServiceItem[]) : []
+        ),
+        activeTeam: activeCount(
+          team.status === "fulfilled" ? (team.value as TeamMember[]) : []
+        ),
+        locationCount:
+          locations.status === "fulfilled" && Array.isArray(locations.value)
+            ? locations.value.length
+            : 0,
+        activeAnnouncements: activeCount(
+          announcements.status === "fulfilled" ? (announcements.value as Announcement[]) : []
+        ),
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard data.");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadOverview() {
-      if (!accessToken) return;
-      try {
-        const [services, team, faqs, content, locations] = await Promise.allSettled([
-          adminGetServices(accessToken),
-          adminGetTeam(accessToken),
-          adminGetFaqs(accessToken),
-          getSiteContent(),
-          getLocations(),
-        ]);
-
-        const servicesVal = services.status === "fulfilled" ? services.value : [];
-        const teamVal = team.status === "fulfilled" ? team.value : [];
-        const faqsVal = faqs.status === "fulfilled" ? faqs.value : [];
-        const contentVal = content.status === "fulfilled" ? content.value : null;
-        const locationsVal = locations.status === "fulfilled" ? locations.value : [];
-
-        setStats({
-          servicesCount: Array.isArray(servicesVal) ? servicesVal.filter((s: any) => s.isActive).length : 0,
-          teamCount: Array.isArray(teamVal) ? teamVal.filter((t: any) => t.isActive).length : 0,
-          faqsCount: Array.isArray(faqsVal) ? faqsVal.filter((f: any) => f.isActive).length : 0,
-          practiceName: contentVal?.general?.practiceName || "Marlow Dental",
-          primaryLocation: locationsVal[0] ? `${locationsVal[0].city}, ${locationsVal[0].state}` : "Lincoln Park, Chicago",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
     loadOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
 
+
+  if (isLoading) {
+    return (
+      <div className="space-y-5">
+        <PageHeader
+          eyebrow="Practice Administration"
+          title={`Welcome back, ${user?.fullName.split(" ")[0] ?? ""}`}
+          description="Clinic-wide operations, practice content and configuration."
+        />
+        <LoadingState title="Loading practice overview..." />
+      </div>
+    );
+  }
+
+  const ops = data?.operations ?? null;
+
   return (
-    <div className="space-y-8 max-w-5xl">
-      {/* Top Welcome Heading */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-line pb-6">
-        <div>
-          <p className="eyebrow mb-1">Administrative Workspace</p>
-          <h1 className="text-2xl sm:text-3xl font-display text-ink font-normal">
-            Welcome back, {user?.fullName.split(" ")[0]}
-          </h1>
-          <p className="mt-1 text-xs sm:text-sm text-ink-soft">
-            Manage database-backed clinic content, clinical staff, and patient procedure fees.
-          </p>
-        </div>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Practice Administration"
+        title={`Welcome back, ${user?.fullName.split(" ")[0] ?? ""}`}
+        description="Clinic-wide operations, practice content and configuration."
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => loadOverview(false)}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              <span>{isRefreshing ? "Updating..." : "Refresh"}</span>
+            </Button>
+            <Button href="/admin/website" variant="primary" size="sm">
+              <Globe className="h-3.5 w-3.5" />
+              <span>Website CMS</span>
+            </Button>
+          </>
+        }
+      />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button href="/admin/announcements" variant="outline" size="sm">
-            <span>Announcements</span>
-          </Button>
-          <Button href="/admin/settings" variant="outline" size="sm">
-            <span>Settings &amp; Theming</span>
-          </Button>
-          <Button href="/admin/website" variant="primary" size="sm">
-            <span>Website CMS</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
+      {error && (
+        <ErrorState
+          title="Dashboard data could not be loaded"
+          description={error}
+          onRetry={() => loadOverview()}
+        />
+      )}
 
-      {/* Real Clinic Architecture & State Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <Card surface="cream" shadow="card" className="p-6">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs text-forest uppercase font-semibold">Active Services</span>
-            <Layers className="h-4 w-4 text-forest" />
-          </div>
-          <p className="mt-4 text-3xl font-display text-ink">
-            {isLoading ? "—" : stats.servicesCount}
-          </p>
-          <p className="mt-1 text-xs text-ink-soft">
-            Procedures live on public fee schedule and booking flow.
-          </p>
-          <Link
-            href="/admin/services"
-            className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-forest hover:underline"
-          >
-            <span>Manage services &amp; pricing</span>
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        </Card>
+      {!error && data && ops && (
+        <>
+          {/* Clinic operations */}
+          <section className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5">
+            <StatCard label="Appointments today" value={ops.todayAppointments} />
+            <StatCard label="Confirmed" value={ops.confirmedCount} tone="positive" />
+            <StatCard label="Unconfirmed" value={ops.unconfirmedCount} tone="warning" />
+            <StatCard label="Checked in" value={ops.checkedInCount} tone="info" />
+            <StatCard label="Waiting" value={ops.waitingCount} tone="warning" />
+            <StatCard label="In treatment" value={ops.inProgressCount} tone="info" />
+            <StatCard label="Completed" value={ops.completedCount} tone="positive" />
+            <StatCard label="No shows" value={ops.noShowCount} tone="danger" />
+          </section>
 
-        <Card surface="cream" shadow="card" className="p-6">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs text-forest uppercase font-semibold">Clinical Team</span>
-            <Users className="h-4 w-4 text-forest" />
-          </div>
-          <p className="mt-4 text-3xl font-display text-ink">
-            {isLoading ? "—" : stats.teamCount}
-          </p>
-          <p className="mt-1 text-xs text-ink-soft">
-            Active clinicians and staff presented on the public website.
-          </p>
-          <Link
-            href="/admin/team"
-            className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-forest hover:underline"
-          >
-            <span>Manage team members</span>
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        </Card>
+          {/* Follow-ups + practice configuration */}
+          <section className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
+            <StatCard
+              label="Pending requests"
+              value={ops.pendingRequestsCount}
+              tone="warning"
+              href="/reception/appointments/requests"
+            />
+            <StatCard
+              label="Urgent tasks"
+              value={ops.urgentTasksCount}
+              tone="danger"
+              href="/reception/tasks"
+            />
+            <StatCard label="New leads" value={ops.newLeadsCount} tone="info" href="/reception/leads" />
+            <StatCard label="Active services" value={data.activeServices} href="/admin/services" />
+            <StatCard label="Active team" value={data.activeTeam} href="/admin/team" />
+            <StatCard label="Clinics" value={data.locationCount} href="/admin/locations" />
+          </section>
 
-        <Card surface="cream" shadow="card" className="p-6">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs text-forest uppercase font-semibold">Published FAQs</span>
-            <Globe className="h-4 w-4 text-forest" />
-          </div>
-          <p className="mt-4 text-3xl font-display text-ink">
-            {isLoading ? "—" : stats.faqsCount}
-          </p>
-          <p className="mt-1 text-xs text-ink-soft">
-            Patient questions covering pricing, comfort, and insurance.
-          </p>
-          <Link
-            href="/admin/website"
-            className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-forest hover:underline"
-          >
-            <span>Review &amp; edit FAQs</span>
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        </Card>
-      </div>
 
-      {/* Clinic System Integrity & Scope Notice */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card surface="bone" shadow="subtle" className="p-6 space-y-4">
-          <div className="flex items-center gap-2 text-ink font-medium text-sm">
-            <ShieldCheck className="h-4 w-4 text-forest" />
-            <span>Practice Organization &amp; Location</span>
-          </div>
-          <div className="space-y-2 text-xs text-ink-soft">
-            <p>
-              <strong className="text-ink font-semibold">Organization:</strong> {stats.practiceName}
-            </p>
-            <p>
-              <strong className="text-ink font-semibold">Primary Facility:</strong> {stats.primaryLocation}
-            </p>
-            <p>
-              <strong className="text-ink font-semibold">Architecture:</strong> Scalable multi-location foundation supporting multiple doctors and future role expansion.
-            </p>
-          </div>
-        </Card>
+          {/* Today's flow + needs attention */}
+          <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <Panel
+              title="Today's appointments"
+              description="Every booking scheduled for today across the network."
+              action={
+                <Button href="/reception/appointments" variant="ghost" size="sm">
+                  <span>View all</span>
+                </Button>
+              }
+              flush
+            >
+              {ops.todayFlow.length === 0 ? (
+                <EmptyState
+                  title="No appointments today"
+                  description="New bookings will appear here as the front desk confirms them."
+                  action={
+                    <Button href="/reception/schedule" variant="secondary" size="sm">
+                      <ListTodo className="h-3.5 w-3.5" />
+                      <span>Open schedule</span>
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-line text-left text-[10px] font-mono uppercase tracking-wider text-ink-soft">
+                        <th className="px-4 py-2 font-semibold">Time</th>
+                        <th className="px-4 py-2 font-semibold">Patient</th>
+                        <th className="px-4 py-2 font-semibold">Provider</th>
+                        <th className="px-4 py-2 font-semibold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {ops.todayFlow.map((item) => (
+                        <tr key={item.id} className="hover:bg-sand/60 transition-colors">
+                          <td className="px-4 py-2.5 font-mono text-ink whitespace-nowrap">
+                            {item.appointmentTime}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <a
+                              href={`tel:${item.patientPhone}`}
+                              className="font-medium text-ink hover:text-primary"
+                            >
+                              {item.patientName}
+                            </a>
+                          </td>
+                          <td className="px-4 py-2.5 text-ink-soft">
+                            {item.providerId
+                              ? directory.providerName(item.providerId) || "Team member"
+                              : "Unassigned"}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <StatusBadge status={item.status} />
+                            {item.confirmationStatus === "unconfirmed" && (
+                              <StatusBadge status="unconfirmed" />
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Panel>
 
-        <Card surface="bone" shadow="subtle" className="p-6 space-y-4">
-          <div className="flex items-center gap-2 text-ink font-medium text-sm">
-            <Database className="h-4 w-4 text-forest" />
-            <span>Database Integrity &amp; Soft Deletion</span>
-          </div>
-          <div className="space-y-2 text-xs text-ink-soft">
-            <p className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Soft-delete enabled: record history preserved on deactivation.</span>
-            </p>
-            <p className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Zero fabricated analytics: real content only.</span>
-            </p>
-            <p className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Live synchronization: public frontend reflects database updates.</span>
-            </p>
-          </div>
-        </Card>
-      </div>
+
+            <Panel
+              title="Needs attention"
+              description="Computed server-side from today's bookings, urgent tasks and new leads."
+              action={
+                <span className="text-[11px] font-mono text-ink-soft">
+                  {ops.needsAttention.length}
+                </span>
+              }
+            >
+              {ops.needsAttention.length === 0 ? (
+                <EmptyState
+                  title="Nothing needs attention"
+                  description="Unconfirmed visits, urgent tasks and new leads will surface here."
+                  icon={<ListTodo className="h-5 w-5" />}
+                />
+              ) : (
+                <ul className="space-y-1.5">
+                  {ops.needsAttention.map((item) => (
+                    <li key={`${item.type}-${item.id}`}>
+                      <a
+                        href={item.link}
+                        className="flex items-start gap-2.5 p-2.5 rounded-[var(--radius-card)] border border-line hover:border-primary/40 transition-colors"
+                      >
+                        <span
+                          className={`mt-1 h-1.5 w-1.5 rounded-full shrink-0 ${
+                            item.priority === "urgent" || item.priority === "high"
+                              ? "bg-red-500"
+                              : item.priority === "medium"
+                              ? "bg-amber-500"
+                              : "bg-blue-500"
+                          }`}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-xs font-medium text-ink truncate">
+                            {item.title}
+                          </span>
+                          <span className="block text-[11px] text-ink-soft truncate">
+                            {item.description}
+                          </span>
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+
+
+            <Panel title="Clinic activity" description="Today's appointment flow, grouped by provider.">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="p-3 rounded-[var(--radius-card)] border border-line bg-sand/60">
+                    <p className="text-[11px] text-ink-soft">First booking</p>
+                    <p className="text-lg font-display text-ink leading-tight mt-0.5">
+                      {ops.todayFlow[0]?.appointmentTime ?? "None scheduled"}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-[var(--radius-card)] border border-line bg-sand/60">
+                    <p className="text-[11px] text-ink-soft">Total today</p>
+                    <p className="text-lg font-display text-ink leading-tight mt-0.5">
+                      {ops.todayAppointments}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-[var(--radius-card)] border border-line bg-sand/60">
+                  <p className="text-[11px] font-semibold text-ink mb-1.5">Waiting and requests</p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-[11px] font-medium border border-red-200/70 dark:border-red-900/60">
+                      <UserX className="h-3 w-3" />
+                      {ops.waitingCount} waiting
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[11px] font-medium border border-blue-200/70 dark:border-blue-900/60">
+                      <Bell className="h-3 w-3" />
+                      {ops.pendingRequestsCount} pending requests
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[11px] font-medium border border-amber-200/70 dark:border-amber-900/60">
+                      <ListTodo className="h-3 w-3" />
+                      {ops.urgentTasksCount} urgent tasks
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Panel>
+
+
+            <Panel
+              title="Practice quick links"
+              description="Common practice administration and front-office tasks."
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <a href="/admin/website" className="p-3 rounded-[var(--radius-card)] border border-line flex items-center gap-2 text-xs font-medium text-ink hover:border-primary/40 transition-colors">
+                  <Globe className="text-primary" />
+                  <span>Website CMS</span>
+                </a>
+                <a href="/admin/services" className="p-3 rounded-[var(--radius-card)] border border-line flex items-center gap-2 text-xs font-medium text-ink hover:border-primary/40 transition-colors">
+                  <Layers className="text-primary" />
+                  <span>Services & pricing</span>
+                </a>
+                <a href="/admin/team" className="p-3 rounded-[var(--radius-card)] border border-line flex items-center gap-2 text-xs font-medium text-ink hover:border-primary/40 transition-colors">
+                  <Users className="text-primary" />
+                  <span>Staff directory</span>
+                </a>
+                <a href="/admin/locations" className="p-3 rounded-[var(--radius-card)] border border-line flex items-center gap-2 text-xs font-medium text-ink hover:border-primary/40 transition-colors">
+                  <MapPin className="text-primary" />
+                  <span>Clinics & locations</span>
+                </a>
+              </div>
+            </Panel>
+          </section>
+        </>
+      )}
     </div>
   );
 }
+
