@@ -51,7 +51,7 @@ export default function ReceptionRequestsPage() {
   const handleTriage = async (id: string, action: "confirm" | "schedule" | "decline") => {
     setActionLoadingId(id);
     try {
-      await triageReceptionRequest(id, action, undefined, accessToken);
+      await triageReceptionRequest(id, action === "decline" ? "decline" : "confirm", undefined, accessToken);
       await loadRequests();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to triage request.");
@@ -67,7 +67,7 @@ export default function ReceptionRequestsPage() {
         <div className="space-y-1">
           <Link
             href="/reception/appointments"
-            className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white"
+            className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>Back to Appointments</span>
@@ -84,7 +84,7 @@ export default function ReceptionRequestsPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs text-gray-700 dark:text-gray-300 shadow-xs"
+            className="px-3.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs text-gray-700 dark:text-gray-300 shadow-xs focus:border-primary"
           >
             <option value="pending">Pending Triage</option>
             <option value="confirmed">Confirmed</option>
@@ -94,7 +94,8 @@ export default function ReceptionRequestsPage() {
 
           <button
             onClick={loadRequests}
-            className="p-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs"
+            className="p-2 rounded-full border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs cursor-pointer transition-colors"
+            aria-label="Refresh requests queue"
           >
             <RefreshCw className="h-4 w-4 text-gray-600 dark:text-gray-300" />
           </button>
@@ -132,12 +133,12 @@ export default function ReceptionRequestsPage() {
                     </span>
                     <span
                       className={`
-                        px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold
+                        px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold
                         ${
                           req.status === "pending"
                             ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
                             : req.status === "confirmed"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                            ? "bg-primary/10 text-primary font-bold"
                             : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                         }
                       `}
@@ -148,7 +149,7 @@ export default function ReceptionRequestsPage() {
 
                   <div className="flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
                     <span className="inline-flex items-center gap-1">
-                      <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                      <Phone className="h-3.5 w-3.5 text-primary" />
                       <a href={`tel:${req.phone}`} className="hover:underline font-mono">
                         {req.phone}
                       </a>
@@ -178,7 +179,7 @@ export default function ReceptionRequestsPage() {
                       <button
                         onClick={() => handleTriage(req.id, "confirm")}
                         disabled={actionLoadingId === req.id}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
+                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
                       >
                         <Check className="h-3.5 w-3.5" />
                         <span>Accept & Confirm</span>
@@ -187,7 +188,7 @@ export default function ReceptionRequestsPage() {
                       <button
                         onClick={() => handleTriage(req.id, "decline")}
                         disabled={actionLoadingId === req.id}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-800 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 shadow-xs"
+                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 shadow-xs transition-colors cursor-pointer"
                       >
                         <X className="h-3.5 w-3.5" />
                         <span>Decline</span>

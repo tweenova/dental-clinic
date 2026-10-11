@@ -37,7 +37,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-[var(--radius-card)] border transition-all duration-200",
+        "rounded-2xl border transition-all duration-200",
         surfaceStyles[surface],
         shadowStyles[shadow],
         hoverLift && "hover:-translate-y-1 hover:shadow-card hover:border-primary/40",

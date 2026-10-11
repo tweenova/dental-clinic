@@ -118,12 +118,29 @@ async def receptionist_auth(test_session: AsyncSession, client_with_db: AsyncCli
 @pytest_asyncio.fixture
 async def doctor_auth(test_session: AsyncSession, client_with_db: AsyncClient):
     """Creates a test doctor user and logs in, returning auth headers and client."""
+    from uuid import uuid4
+    from app.domain.models.team_member import TeamMember
+    from app.infrastructure.repositories.postgres_team_repo import PostgresTeamMemberRepository
+
+    team_repo = PostgresTeamMemberRepository(test_session)
+    doc_tm = TeamMember(
+        organization_id=uuid4(),
+        first_name="Test",
+        last_name="Doctor",
+        display_name="Dr. Test Doctor",
+        professional_title="General Dentist",
+        role="Doctor",
+        is_active=True,
+    )
+    saved_tm = await team_repo.save(doc_tm)
+
     user_repo = PostgresUserRepository(test_session)
     doc_user = User(
         email="testdoctor@marlowdental.com",
         hashed_password=hash_password("DoctorTest123!"),
         full_name="Test Doctor",
         role=UserRole.DOCTOR,
+        team_member_id=saved_tm.id,
         is_active=True,
     )
     await user_repo.save(doc_user)
@@ -141,5 +158,6 @@ async def doctor_auth(test_session: AsyncSession, client_with_db: AsyncClient):
         "token": token,
         "client": client_with_db,
         "user": doc_user,
+        "team_member": saved_tm,
         "cookies": resp.cookies,
     }

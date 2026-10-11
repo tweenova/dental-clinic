@@ -48,6 +48,8 @@ def _map_user_response(user: User) -> UserResponse:
         fullName=user.full_name,
         role=user.role.value,
         isActive=user.is_active,
+        clinicId=user.clinic_id,
+        teamMemberId=user.team_member_id,
         inactivityEnabled=user.inactivity_enabled,
         inactivityTimeoutMinutes=user.inactivity_timeout_minutes,
         inactivityWarningSeconds=user.inactivity_warning_seconds,

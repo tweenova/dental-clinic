@@ -9,24 +9,36 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TextField } from "@/components/ui/text-field";
 import { useAuth } from "@/components/providers/auth-provider";
+import { homePathForRole } from "@/lib/workspace";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, login, isLoading } = useAuth();
+  const { user, login, isLoading, logout } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  // Explain why the visitor landed here (session expiry, inactivity timeout,
+  // or an account without a staff workspace).
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get("reason");
+    if (reason === "session_expired") {
+      setInfoMessage("Your session expired. Please sign in again.");
+    } else if (reason === "inactivity") {
+      setInfoMessage("You were signed out after a period of inactivity.");
+    } else if (reason === "no-workspace") {
+      setInfoMessage("This account does not have a staff workspace. Contact your administrator.");
+    }
+  }, []);
 
   useEffect(() => {
     if (!isLoading && user) {
-      if (user.role === "admin") {
-        router.push("/admin");
-      } else if (user.role === "receptionist") {
-        router.push("/reception");
-      } else if (user.role === "doctor") {
-        router.push("/doctor");
+      const homePath = homePathForRole(user.role);
+      if (homePath) {
+        router.replace(homePath);
       }
     }
   }, [user, isLoading, router]);
@@ -84,6 +96,34 @@ export default function LoginPage() {
                 Sign in to manage practice content, team members, and services.
               </p>
             </div>
+
+            {/* Session / workspace notices */}
+            {infoMessage && !errorMessage && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mt-6 rounded-[var(--radius-card)] border border-line bg-sand p-3 text-xs text-ink-soft"
+              >
+                {infoMessage}
+              </div>
+            )}
+
+            {/* Signed in, but this account has no staff workspace */}
+            {!isLoading && user && !homePathForRole(user.role) && (
+              <div
+                role="alert"
+                className="mt-6 rounded-[var(--radius-card)] border border-line bg-sand p-3.5 text-xs text-ink-soft space-y-3"
+              >
+                <p>
+                  Signed in as <strong className="text-ink">{user.email}</strong> with the{" "}
+                  <strong className="text-ink">{user.role}</strong> role. There is no staff
+                  workspace assigned to this account.
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => logout()}>
+                  <span>Sign out</span>
+                </Button>
+              </div>
+            )}
 
             {/* Error Announcement */}
             {errorMessage && (

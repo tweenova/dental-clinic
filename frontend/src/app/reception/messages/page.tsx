@@ -1,21 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import {
-  AlertCircle,
-  Clock,
-  Filter,
-  Inbox,
-  Mail,
-  MessageSquare,
-  Phone,
-  Plus,
-  Search,
-  Send,
-  User,
-  X,
-} from "lucide-react";
+import { Inbox, Plus, Search, X } from "lucide-react";
 
 import {
   getReceptionMessages,
@@ -36,10 +22,8 @@ export default function ReceptionMessagesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [patientSearch, setPatientSearch] = useState("");
   const [patientResults, setPatientResults] = useState<Array<{ id: string; fullName: string; phone: string }>>([]);
-  const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [channel, setChannel] = useState<"sms" | "email" | "portal" | "whatsapp">("sms");
   const [recipient, setRecipient] = useState("");
-  const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -85,21 +69,17 @@ export default function ReceptionMessagesPage() {
     try {
       await sendReceptionMessage(
         {
-          patientId: selectedPatientId || undefined,
           channel,
           recipient: recipient || undefined,
-          subject: subject || undefined,
-          body,
-          isInternalNote,
+          body: isInternalNote ? `[Internal Note] ${body}` : body,
         },
         accessToken
       );
       setIsModalOpen(false);
-      setSelectedPatientId("");
       setPatientSearch("");
       setBody("");
-      setSubject("");
       setRecipient("");
+      setIsInternalNote(false);
       await loadMessages();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to log message.");
@@ -123,7 +103,7 @@ export default function ReceptionMessagesPage() {
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           <span>New Message / Log</span>
@@ -142,9 +122,9 @@ export default function ReceptionMessagesPage() {
             <button
               key={tab.id}
               onClick={() => setChannelFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
                 channelFilter === tab.id
-                  ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold"
+                  ? "bg-primary text-white font-semibold shadow-xs"
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
             >
@@ -179,38 +159,35 @@ export default function ReceptionMessagesPage() {
                   <div className="flex items-center gap-2">
                     <span
                       className={`
-                        px-2 py-0.5 rounded-md font-mono uppercase text-[10px] font-bold
+                        px-2.5 py-0.5 rounded-full font-mono uppercase text-[10px] font-bold
                         ${
-                          m.isInternalNote
-                            ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-                            : m.channel === "sms"
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                            : "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                          m.channel === "sms"
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : m.channel === "email"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                            : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                         }
                       `}
                     >
-                      {m.isInternalNote ? "Internal Note" : `${m.channel} · ${m.direction}`}
+                      {m.channel}
                     </span>
-                    {m.patientName && (
-                      <span className="font-semibold text-gray-900 dark:text-white">
-                        Patient: {m.patientName}
-                      </span>
-                    )}
+                    <span className="font-mono text-[10px] text-gray-400 uppercase">
+                      {m.status}
+                    </span>
                   </div>
                   <span className="text-[11px] text-gray-400 font-mono">
                     {m.createdAt ? new Date(m.createdAt).toLocaleString() : ""}
                   </span>
                 </div>
 
-                {m.subject && (
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">
-                    Subject: {m.subject}
+                <p className="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-100 dark:border-gray-800">
+                  {m.content}
+                </p>
+                {m.recipient && (
+                  <p className="font-mono text-[11px] text-gray-500">
+                    Recipient: {m.recipient}
                   </p>
                 )}
-
-                <p className="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl">
-                  {m.body}
-                </p>
               </div>
             ))}
           </div>
@@ -225,7 +202,10 @@ export default function ReceptionMessagesPage() {
               <h2 className="text-base font-display font-semibold text-gray-900 dark:text-white">
                 Log Message or Internal Note
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -235,13 +215,16 @@ export default function ReceptionMessagesPage() {
                 <label className="font-medium text-gray-700 dark:text-gray-300">
                   Search Patient (Optional)
                 </label>
-                <input
-                  type="text"
-                  placeholder="Type name or phone..."
-                  value={patientSearch}
-                  onChange={(e) => handlePatientSearch(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
-                />
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Type name or phone..."
+                    value={patientSearch}
+                    onChange={(e) => handlePatientSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
+                  />
+                </div>
                 {patientResults.length > 0 && (
                   <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-1 max-h-32 overflow-y-auto">
                     {patientResults.map((p) => (
@@ -249,11 +232,11 @@ export default function ReceptionMessagesPage() {
                         type="button"
                         key={p.id}
                         onClick={() => {
-                          setSelectedPatientId(p.id);
                           setPatientSearch(`${p.fullName} (${p.phone})`);
+                          setRecipient(p.phone);
                           setPatientResults([]);
                         }}
-                        className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950 flex justify-between"
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/10 hover:text-primary flex justify-between cursor-pointer transition-colors"
                       >
                         <span>{p.fullName}</span>
                         <span className="font-mono text-gray-400">{p.phone}</span>
@@ -263,33 +246,44 @@ export default function ReceptionMessagesPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-medium text-gray-700 dark:text-gray-300">Channel</label>
-                  <select
-                    value={channel}
-                    onChange={(e) => setChannel(e.target.value as "sms" | "email" | "portal" | "whatsapp")}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
-                  >
-                    <option value="sms">SMS</option>
-                    <option value="email">Email</option>
-                    <option value="portal">Portal</option>
-                    <option value="whatsapp">WhatsApp</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1 flex flex-col justify-end">
-                  <label className="flex items-center gap-2 cursor-pointer pb-2">
-                    <input
-                      type="checkbox"
-                      checked={isInternalNote}
-                      onChange={(e) => setIsInternalNote(e.target.checked)}
-                      className="rounded border-gray-300 text-emerald-600"
-                    />
-                    <span>Internal Note Only</span>
-                  </label>
-                </div>
+              <div className="space-y-1">
+                <label className="font-medium text-gray-700 dark:text-gray-300">Channel</label>
+                <select
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value as "sms" | "email" | "portal" | "whatsapp")}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
+                >
+                  <option value="sms">SMS</option>
+                  <option value="email">Email</option>
+                  <option value="portal">Portal</option>
+                  <option value="whatsapp">WhatsApp</option>
+                </select>
               </div>
+
+              <div className="space-y-1">
+                <label className="font-medium text-gray-700 dark:text-gray-300">
+                  Recipient {channel === "email" ? "Email" : "Phone"}
+                </label>
+                <input
+                  type={channel === "email" ? "email" : "tel"}
+                  placeholder={channel === "email" ? "patient@example.com" : "+1-555-0199"}
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 font-mono focus:border-primary"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isInternalNote}
+                  onChange={(e) => setIsInternalNote(e.target.checked)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  Internal Note Only (prefixes the log entry and hides it from patient-facing records)
+                </span>
+              </label>
 
               <div className="space-y-1">
                 <label className="font-medium text-gray-700 dark:text-gray-300">Message Content *</label>
@@ -299,7 +293,7 @@ export default function ReceptionMessagesPage() {
                   placeholder="Enter message text or note..."
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                 />
               </div>
 
@@ -311,14 +305,14 @@ export default function ReceptionMessagesPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
+                  className="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSending}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold"
+                  className="px-4 py-2 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 cursor-pointer transition-colors"
                 >
                   {isSending ? "Saving..." : "Save Message"}
                 </button>

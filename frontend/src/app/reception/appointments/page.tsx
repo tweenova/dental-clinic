@@ -22,9 +22,11 @@ import {
   updateReceptionBookingStatus,
 } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useDirectory } from "@/lib/directory";
 
 export default function ReceptionAppointmentsPage() {
   const { accessToken } = useAuth();
+  const directory = useDirectory();
 
   const [activeTab, setActiveTab] = useState<"all" | "today" | "upcoming" | "completed" | "cancelled">("all");
   const [bookings, setBookings] = useState<ReceptionBooking[]>([]);
@@ -106,13 +108,13 @@ export default function ReceptionAppointmentsPage() {
             href="/reception/appointments/confirmations"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs"
           >
-            <FileCheck className="h-3.5 w-3.5 text-emerald-500" />
+            <FileCheck className="h-3.5 w-3.5 text-primary" />
             <span>Confirmations</span>
           </Link>
 
           <Link
             href="/reception/schedule"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors"
           >
             <Plus className="h-4 w-4" />
             <span>New Booking</span>
@@ -127,9 +129,9 @@ export default function ReceptionAppointmentsPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium capitalize transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium capitalize transition-all cursor-pointer ${
                 activeTab === tab
-                  ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold"
+                  ? "bg-primary text-white font-semibold shadow-xs"
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
             >
@@ -139,14 +141,14 @@ export default function ReceptionAppointmentsPage() {
         </div>
 
         <div className="relative">
-          <Search className="h-3.5 w-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+          <Search className="h-3.5 w-3.5 text-gray-400 absolute left-3 top-2.5" />
           <input
             type="text"
             placeholder="Search bookings..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && loadBookings()}
-            className="pl-8 pr-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white w-48 focus:w-60 transition-all"
+            className="pl-9 pr-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white w-48 focus:w-60 transition-all focus:border-primary"
           />
         </div>
       </div>
@@ -170,26 +172,26 @@ export default function ReceptionAppointmentsPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 uppercase font-mono text-[10px]">
                 <tr>
-                  <th className="px-4 py-3">Date & Time</th>
-                  <th className="px-4 py-3">Patient</th>
-                  <th className="px-4 py-3">Provider</th>
-                  <th className="px-4 py-3">Service</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Confirmation</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-5 py-3.5">Date & Time</th>
+                  <th className="px-5 py-3.5">Patient</th>
+                  <th className="px-5 py-3.5">Provider</th>
+                  <th className="px-5 py-3.5">Service</th>
+                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5">Confirmation</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {bookings.map((b) => (
                   <tr key={b.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40">
-                    <td className="px-4 py-3 font-mono">
+                    <td className="px-5 py-4 font-mono">
                       <span className="font-semibold text-gray-900 dark:text-white">{b.bookingDate}</span>{" "}
                       <span className="text-gray-500">{b.bookingTime}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <Link
                         href={`/reception/patients/${b.patientId}`}
-                        className="font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                        className="font-medium text-primary hover:underline flex items-center gap-1"
                       >
                         <User className="h-3 w-3" />
                         <span>{b.patientName || "Patient"}</span>
@@ -198,25 +200,25 @@ export default function ReceptionAppointmentsPage() {
                         <span className="text-[11px] text-gray-400 block">{b.patientPhone}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                      {b.providerName || "Assigned Provider"}
+                    <td className="px-5 py-4 text-gray-700 dark:text-gray-300">
+                      {directory.providerName(b.providerId) || "Assigned Provider"}
                     </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
-                      {b.serviceName || "Consultation"}
+                    <td className="px-5 py-4 text-gray-600 dark:text-gray-400">
+                      {directory.serviceName(b.serviceId) || "Consultation"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <span
                         className={`
-                          px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase
+                          px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase
                           ${
                             b.status === "scheduled"
                               ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
                               : b.status === "arrived"
                               ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
                               : b.status === "in_progress"
-                              ? "bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300"
+                              ? "bg-clay/10 text-clay"
                               : b.status === "completed"
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                              ? "bg-primary/10 text-primary font-bold"
                               : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
                           }
                         `}
@@ -224,13 +226,13 @@ export default function ReceptionAppointmentsPage() {
                         {b.status.replace("_", " ")}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-4">
                       <span
                         className={`
-                          px-2 py-0.5 rounded-full text-[10px] font-mono
+                          px-2.5 py-0.5 rounded-full text-[10px] font-mono
                           ${
                             b.confirmationStatus === "confirmed"
-                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-medium"
+                              ? "bg-primary/10 text-primary font-medium"
                               : "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
                           }
                         `}
@@ -238,30 +240,30 @@ export default function ReceptionAppointmentsPage() {
                         {b.confirmationStatus}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-5 py-4 text-right">
                       <div className="inline-flex items-center gap-1.5">
                         {b.confirmationStatus === "unconfirmed" && (
                           <button
                             onClick={() => handleConfirm(b.id)}
-                            className="px-2 py-1 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium hover:bg-emerald-100"
+                            className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors cursor-pointer"
                           >
                             Confirm
                           </button>
                         )}
 
-                        {b.status === "scheduled" && (
+                        {(b.status === "confirmed" || b.status === "scheduled") && (
                           <button
                             onClick={() => handleStatusChange(b.id, "arrived")}
-                            className="px-2 py-1 rounded bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700"
+                            className="px-3 py-1 rounded-full bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 transition-colors cursor-pointer"
                           >
                             Check In
                           </button>
                         )}
 
-                        {b.status === "arrived" && (
+                        {(b.status === "arrived" || b.status === "checked_in" || b.status === "waiting") && (
                           <button
                             onClick={() => handleStatusChange(b.id, "in_progress")}
-                            className="px-2 py-1 rounded bg-teal-600 text-white text-[11px] font-medium hover:bg-teal-700"
+                            className="px-3 py-1 rounded-full bg-clay text-white text-[11px] font-medium hover:bg-clay/90 transition-colors cursor-pointer"
                           >
                             With Doctor
                           </button>
@@ -270,7 +272,7 @@ export default function ReceptionAppointmentsPage() {
                         {b.status === "in_progress" && (
                           <button
                             onClick={() => handleStatusChange(b.id, "completed")}
-                            className="px-2 py-1 rounded bg-emerald-600 text-white text-[11px] font-medium hover:bg-emerald-700"
+                            className="px-3 py-1 rounded-full bg-primary text-white text-[11px] font-medium hover:bg-primary/90 transition-colors cursor-pointer"
                           >
                             Complete
                           </button>

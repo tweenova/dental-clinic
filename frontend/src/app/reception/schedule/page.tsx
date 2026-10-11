@@ -27,9 +27,11 @@ import {
 import { useAuth } from "@/components/providers/auth-provider";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useDirectory } from "@/lib/directory";
 
 export default function ReceptionSchedulePage() {
   const { accessToken } = useAuth();
+  const directory = useDirectory();
 
   const [selectedDate, setSelectedDate] = useState(() => {
     return new Date().toISOString().split("T")[0];
@@ -112,8 +114,7 @@ export default function ReceptionSchedulePage() {
           patientId: selectedPatientId,
           bookingDate: newBookingDate,
           bookingTime: newBookingTime,
-          durationMinutes: 30,
-          notes: newBookingNotes,
+          notes: newBookingNotes || undefined,
         },
         accessToken
       );
@@ -289,7 +290,6 @@ export default function ReceptionSchedulePage() {
                   <th className="px-5 py-3.5">Patient</th>
                   <th className="px-5 py-3.5">Provider</th>
                   <th className="px-5 py-3.5">Service</th>
-                  <th className="px-5 py-3.5">Duration</th>
                   <th className="px-5 py-3.5">Status</th>
                   <th className="px-5 py-3.5">Confirmation</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
@@ -313,13 +313,10 @@ export default function ReceptionSchedulePage() {
                       )}
                     </td>
                     <td className="px-5 py-4 text-ink">
-                      {b.providerName || "Assigned Provider"}
+                      {directory.providerName(b.providerId) || "Assigned Provider"}
                     </td>
                     <td className="px-5 py-4 text-ink-soft">
-                      {b.serviceName || "Dental Visit"}
-                    </td>
-                    <td className="px-5 py-4 text-ink-soft font-mono">
-                      {b.durationMinutes} min
+                      {directory.serviceName(b.serviceId) || "Dental Visit"}
                     </td>
                     <td className="px-5 py-4">
                       <span
@@ -331,7 +328,7 @@ export default function ReceptionSchedulePage() {
                               : b.status === "arrived"
                               ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
                               : b.status === "in_progress"
-                              ? "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300"
+                              ? "bg-clay/15 text-clay"
                               : b.status === "completed"
                               ? "bg-primary/10 text-primary font-bold"
                               : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
@@ -366,7 +363,7 @@ export default function ReceptionSchedulePage() {
                           </button>
                         )}
 
-                        {b.status === "scheduled" && (
+                        {(b.status === "confirmed" || b.status === "scheduled") && (
                           <button
                             onClick={() => handleStatusUpdate(b.id, "arrived")}
                             className="px-2.5 py-1 rounded-full bg-primary text-white text-[11px] font-medium hover:bg-primary/90 shadow-xs transition-colors"
@@ -447,7 +444,7 @@ export default function ReceptionSchedulePage() {
                           setPatientSearch(`${p.fullName} (${p.phone})`);
                           setPatientResults([]);
                         }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-xs flex justify-between hover:bg-sand ${
+                        className={`w-full text-left px-3.5 py-2 rounded-xl text-xs flex justify-between hover:bg-sand ${
                           selectedPatientId === p.id ? "bg-primary/10 font-bold text-primary" : "text-ink"
                         }`}
                       >

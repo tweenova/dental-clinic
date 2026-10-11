@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, Uuid, func
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, Text, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -394,6 +394,12 @@ class UserORM(Base):
     clinic_id: Mapped[Optional[UUID]] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("clinics.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    team_member_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("team_members.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -1417,5 +1423,461 @@ class AppointmentORM(Base):
             "ix_appointments_status_created_at",
             "status",
             created_at.desc(),
+        ),
+    )
+
+
+class ClinicalEncounterORM(Base):
+    """
+    Stores clinical encounters/visits with patient, clinician, and optional booking associations.
+    """
+    __tablename__ = "clinical_encounters"
+
+    id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+    clinic_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("clinics.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    patient_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    clinician_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("team_members.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    booking_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("bookings.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    appointment_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("appointments.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="draft",
+        index=True,
+    )
+    chief_complaint: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    reason_for_visit: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    ended_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_clinical_encounters_patient_created",
+            "patient_id",
+            created_at.desc(),
+        ),
+        Index(
+            "ix_clinical_encounters_clinician_status",
+            "clinician_id",
+            "status",
+        ),
+    )
+
+
+class ClinicalNoteORM(Base):
+    """
+    Stores structured SOAP clinical note revision snapshots.
+    """
+    __tablename__ = "clinical_notes"
+
+    id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+    encounter_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("clinical_encounters.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    patient_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    clinic_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("clinics.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    author_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("team_members.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    revision_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+    )
+    is_current: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="draft",
+        index=True,
+    )
+    subjective: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    objective: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    assessment: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    plan: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    is_signed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    signed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    signed_by_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("team_members.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    amendment_reason: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_clinical_notes_encounter_revision",
+            "encounter_id",
+            "revision_number",
+            unique=True,
+        ),
+        Index(
+            "uq_clinical_notes_current_per_encounter",
+            "encounter_id",
+            unique=True,
+            postgresql_where=is_current == True,
+            sqlite_where=is_current == True,
+        ),
+    )
+
+
+class DentalChartFindingORM(Base):
+    """
+    Stores tooth-level and surface-level dental chart findings.
+    Findings are corrected in place with an audit trail and resolved via status;
+    rows are never hard-deleted through the application.
+    """
+    __tablename__ = "dental_chart_findings"
+
+    id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+    patient_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    clinic_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("clinics.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    encounter_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("clinical_encounters.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    author_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("team_members.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    tooth: Mapped[str] = mapped_column(
+        String(2),
+        nullable=False,
+    )
+    surfaces: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="",
+    )
+    condition: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="active",
+        index=True,
+    )
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    correction_reason: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    corrected_by_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("team_members.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    corrected_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    resolved_by_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("team_members.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "tooth IN ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16',"
+            "'17','18','19','20','21','22','23','24','25','26','27','28','29','30','31','32',"
+            "'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T')",
+            name="ck_dental_findings_tooth_valid",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'resolved')",
+            name="ck_dental_findings_status_valid",
+        ),
+        CheckConstraint(
+            "surfaces = '' OR surfaces NOT LIKE '% %'",
+            name="ck_dental_findings_surfaces_format",
+        ),
+        # Exactly one active copy of an identical finding per patient. Distinct
+        # findings on the same tooth or surface remain fully legal.
+        Index(
+            "uq_dental_findings_active_duplicate",
+            "patient_id",
+            "tooth",
+            "condition",
+            "surfaces",
+            unique=True,
+            postgresql_where=status == "active",
+            sqlite_where=status == "active",
+        ),
+        Index(
+            "ix_dental_findings_patient_created",
+            "patient_id",
+            "created_at",
+        ),
+        Index(
+            "ix_dental_findings_patient_tooth",
+            "patient_id",
+            "tooth",
+        ),
+    )
+
+
+class DentalProcedureORM(Base):
+    """
+    Stores planned and performed dental procedure records referencing the
+    existing services catalog. Lifecycle is carried by status transitions.
+    """
+    __tablename__ = "dental_procedures"
+
+    id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+    patient_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("patients.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    clinic_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("clinics.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    encounter_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("clinical_encounters.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    recorded_by_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("team_members.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    service_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("services.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    tooth: Mapped[str] = mapped_column(
+        String(2),
+        nullable=False,
+    )
+    surfaces: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="",
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="planned",
+        index=True,
+    )
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    completed_by_id: Mapped[Optional[UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("team_members.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "tooth IN ('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16',"
+            "'17','18','19','20','21','22','23','24','25','26','27','28','29','30','31','32',"
+            "'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T')",
+            name="ck_dental_procedures_tooth_valid",
+        ),
+        CheckConstraint(
+            "status IN ('planned', 'in_progress', 'completed', 'cancelled')",
+            name="ck_dental_procedures_status_valid",
+        ),
+        CheckConstraint(
+            "surfaces = '' OR surfaces NOT LIKE '% %'",
+            name="ck_dental_procedures_surfaces_format",
+        ),
+        CheckConstraint(
+            "(status = 'completed') = (completed_at IS NOT NULL)",
+            name="ck_dental_procedures_completion_consistency",
+        ),
+        Index(
+            "ix_dental_procedures_patient_created",
+            "patient_id",
+            "created_at",
+        ),
+        Index(
+            "ix_dental_procedures_patient_status",
+            "patient_id",
+            "status",
         ),
     )

@@ -62,14 +62,14 @@ export default function ReceptionAccountPage() {
         {/* Profile Card */}
         <div className="p-6 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xs space-y-4">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary/10 text-primary">
               <User className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                 Front-Office Profile
               </h2>
-              <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 capitalize">
+              <span className="text-[11px] font-mono text-primary uppercase font-bold tracking-wider">
                 {user?.role} Staff
               </span>
             </div>
@@ -92,7 +92,7 @@ export default function ReceptionAccountPage() {
 
             <div className="pt-2 flex justify-between">
               <span className="text-gray-500">Account Status</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+              <span className="text-primary font-semibold">
                 Active & Authorized
               </span>
             </div>
@@ -102,7 +102,7 @@ export default function ReceptionAccountPage() {
         {/* Clinic Scope Card */}
         <div className="p-6 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xs space-y-4">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
               <MapPin className="h-5 w-5" />
             </div>
             <div>
@@ -137,7 +137,7 @@ export default function ReceptionAccountPage() {
       {/* HIPAA Inactivity & Session Preferences */}
       <div className="p-6 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xs space-y-4">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
+          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
@@ -151,7 +151,7 @@ export default function ReceptionAccountPage() {
         </div>
 
         {savedSuccess && (
-          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-300">
+          <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
             ✓ Security settings updated successfully.
           </div>
         )}
@@ -165,7 +165,7 @@ export default function ReceptionAccountPage() {
               <select
                 value={inactivityMinutes}
                 onChange={(e) => setInactivityMinutes(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
               >
                 <option value={5}>5 minutes</option>
                 <option value={10}>10 minutes</option>
@@ -182,7 +182,7 @@ export default function ReceptionAccountPage() {
               <select
                 value={warningSeconds}
                 onChange={(e) => setWarningSeconds(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
               >
                 <option value={30}>30 seconds</option>
                 <option value={60}>60 seconds (Standard)</option>
@@ -194,7 +194,7 @@ export default function ReceptionAccountPage() {
           <button
             type="submit"
             disabled={isSaving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
           >
             <Save className="h-3.5 w-3.5" />
             <span>{isSaving ? "Saving..." : "Update Preferences"}</span>
@@ -215,7 +215,7 @@ export default function ReceptionAccountPage() {
 
         <button
           onClick={() => logout()}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/60 text-xs font-semibold hover:bg-red-100"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/60 text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors cursor-pointer"
         >
           <LogOut className="h-4 w-4" />
           <span>Sign Out</span>

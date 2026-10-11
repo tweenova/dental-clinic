@@ -20,6 +20,7 @@ import {
   updateInactivitySettings as apiUpdateInactivitySettings,
   User,
 } from "@/lib/api";
+import { homePathForRole } from "@/lib/workspace";
 
 interface AuthContextType {
   user: User | null;
@@ -181,15 +182,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(data.accessToken);
     setUser(data.user);
     lastActivityRef.current = Date.now();
-    if (data.user.role === "admin") {
-      router.push("/admin");
-    } else if (data.user.role === "receptionist") {
-      router.push("/reception");
-    } else if (data.user.role === "doctor") {
-      router.push("/doctor");
-    } else {
-      router.push("/");
-    }
+    // Role-based redirect resolved in one place (lib/workspace.ts) so every
+    // backend role value lands on its correct workspace. Accounts without a
+    // staff workspace stay on the login screen, which explains why.
+    const homePath = homePathForRole(data.user.role);
+    router.push(homePath ?? "/login?reason=no-workspace");
   };
 
   const refresh = async (): Promise<string | null> => {

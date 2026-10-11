@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Calendar,
   Check,
   CheckCircle2,
   Clock,
@@ -20,12 +19,13 @@ import {
   updateReceptionBookingConfirmation,
 } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useDirectory } from "@/lib/directory";
 
 export default function ReceptionConfirmationsPage() {
   const { accessToken } = useAuth();
+  const directory = useDirectory();
 
   const [date, setDate] = useState(() => {
-    // Tomorrow by default
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split("T")[0];
@@ -70,7 +70,7 @@ export default function ReceptionConfirmationsPage() {
         <div className="space-y-1">
           <Link
             href="/reception/appointments"
-            className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white"
+            className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>Back to Appointments</span>
@@ -88,12 +88,13 @@ export default function ReceptionConfirmationsPage() {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs font-mono text-gray-900 dark:text-white shadow-xs"
+            className="px-3.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs font-mono text-gray-900 dark:text-white shadow-xs focus:border-primary"
           />
 
           <button
             onClick={loadConfirmations}
-            className="p-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs"
+            className="p-2 rounded-full border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs cursor-pointer transition-colors"
+            aria-label="Refresh confirmation queue"
           >
             <RefreshCw className="h-4 w-4 text-gray-600 dark:text-gray-300" />
           </button>
@@ -108,7 +109,7 @@ export default function ReceptionConfirmationsPage() {
           </div>
         ) : confirmations.length === 0 ? (
           <div className="p-12 text-center space-y-2">
-            <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+            <CheckCircle2 className="h-8 w-8 text-primary mx-auto" />
             <p className="text-sm font-semibold text-gray-900 dark:text-white">
               No unconfirmed appointments for {date}
             </p>
@@ -119,7 +120,7 @@ export default function ReceptionConfirmationsPage() {
             {confirmations.map((item) => (
               <div
                 key={item.id}
-                className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/60 dark:hover:bg-gray-800/30"
+                className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3">
@@ -134,21 +135,21 @@ export default function ReceptionConfirmationsPage() {
                   <div className="flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
                     {item.patientPhone && (
                       <span className="inline-flex items-center gap-1 font-mono">
-                        <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                        <Phone className="h-3.5 w-3.5 text-primary" />
                         <a href={`tel:${item.patientPhone}`} className="hover:underline">
                           {item.patientPhone}
                         </a>
                       </span>
                     )}
-                    <span>Provider: {item.providerName || "Assigned Provider"}</span>
-                    <span>Service: {item.serviceName || "Consultation"}</span>
+                    <span>Provider: {directory.providerName(item.providerId) || "Assigned Provider"}</span>
+                    <span>Service: {directory.serviceName(item.serviceId) || "Consultation"}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <a
                     href={`tel:${item.patientPhone}`}
-                    className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="px-4 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     Call Patient
                   </a>
@@ -156,7 +157,7 @@ export default function ReceptionConfirmationsPage() {
                   <button
                     onClick={() => handleConfirm(item.id)}
                     disabled={actionLoadingId === item.id}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
                   >
                     <Check className="h-3.5 w-3.5" />
                     <span>Mark Confirmed</span>

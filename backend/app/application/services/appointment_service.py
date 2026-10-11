@@ -8,7 +8,10 @@ from app.application.dtos.appointment_dto import (
 )
 from app.core.logging import logger
 from app.domain.models.appointment import Appointment
+from app.domain.models.booking_crm import Booking, Patient
 from app.domain.repositories.appointment_repo import AppointmentRepository
+from app.domain.repositories.booking_repo import BookingRepository
+from app.domain.repositories.patient_repo import PatientRepository
 
 
 class AppointmentService:
@@ -16,12 +19,20 @@ class AppointmentService:
     Coordinates the business steps needed to book an appointment.
 
     This service creates unique confirmation codes, handles collisions if two patients
-    generate the same code, and instructs the database repository to store the record.
+    generate the same code, ensures patient deduplication, and stores canonical bookings
+    for reception triage as well as legacy appointments for backward compatibility.
     """
 
-    def __init__(self, repository: AppointmentRepository) -> None:
-        """Stores the given repository so this service can save and retrieve appointment records."""
+    def __init__(
+        self,
+        repository: AppointmentRepository,
+        booking_repo: Optional[BookingRepository] = None,
+        patient_repo: Optional[PatientRepository] = None,
+    ) -> None:
+        """Stores repositories for appointments, canonical bookings, and patient charts."""
         self._repository = repository
+        self._booking_repo = booking_repo
+        self._patient_repo = patient_repo
 
     @staticmethod
     def generate_confirmation_id() -> str:
@@ -35,17 +46,58 @@ class AppointmentService:
         request: AppointmentCreateRequest,
     ) -> AppointmentCreateResponse:
         """
-        Takes patient booking details, assigns a tracking ID, and saves the appointment.
-
-        If the randomly generated tracking code accidentally matches an existing record in the database,
-        this method catches the conflict and automatically tries again with a fresh code.
+        Takes patient booking details, assigns a tracking ID, deduplicates or creates the patient chart,
+        and saves both the canonical reception booking and legacy appointment record.
         """
         parsed_date = date.fromisoformat(request.preferredDate)
 
-        # Attempt creation with up to 1 retry on confirmation_id unique constraint collision
-        max_attempts = 2
+        # Attempt creation with up to 2 retries on confirmation_id unique constraint collision
+        max_attempts = 3
         for attempt in range(max_attempts):
             confirmation_id = self.generate_confirmation_id()
+            patient_id = None
+
+            # Deduplicate or create patient record if patient repository is wired
+            if self._patient_repo is not None:
+                names = request.fullName.strip().split()
+                first = names[0] if names else "Patient"
+                last = " ".join(names[1:]) if len(names) > 1 else "Unknown"
+                dups = await self._patient_repo.find_duplicates(
+                    first_name=first,
+                    last_name=last,
+                    phone=request.phone.strip(),
+                    email=request.email.strip().lower() if request.email else None,
+                )
+                if dups:
+                    patient_id = dups[0].id
+                else:
+                    new_pat = Patient(
+                        first_name=first,
+                        last_name=last,
+                        phone=request.phone.strip(),
+                        email=request.email.strip().lower() if request.email else None,
+                    )
+                    saved_pat = await self._patient_repo.save(new_pat)
+                    patient_id = saved_pat.id
+
+            # Create canonical booking record for reception intake triage queue
+            if self._booking_repo is not None:
+                booking = Booking(
+                    confirmation_id=confirmation_id,
+                    preferred_date=parsed_date,
+                    preferred_time=request.preferredTime,
+                    patient_full_name=request.fullName.strip(),
+                    patient_phone=request.phone.strip(),
+                    patient_email=request.email.strip().lower() if request.email else "",
+                    service_id=request.serviceId,
+                    patient_id=patient_id,
+                    status="requested",
+                    notes=request.notes,
+                    utm_source=request.utmSource,
+                    utm_campaign=request.utmCampaign,
+                )
+                await self._booking_repo.save(booking)
+
             appointment = Appointment(
                 confirmation_id=confirmation_id,
                 service_id=request.serviceId,

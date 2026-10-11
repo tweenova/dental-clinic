@@ -29,11 +29,13 @@ import {
   updateReceptionPatient,
 } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useDirectory } from "@/lib/directory";
 
 export default function ReceptionPatientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { accessToken } = useAuth();
+  const directory = useDirectory();
   const patientId = params?.id as string;
 
   const [patient, setPatient] = useState<ReceptionPatientDetail | null>(null);
@@ -44,9 +46,6 @@ export default function ReceptionPatientDetailPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
-  const [insuranceProvider, setInsuranceProvider] = useState("");
-  const [insurancePolicy, setInsurancePolicy] = useState("");
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -64,9 +63,6 @@ export default function ReceptionPatientDetailPage() {
       setPatient(data);
       setPhone(data.phone);
       setEmail(data.email || "");
-      setAddress(data.address || "");
-      setInsuranceProvider(data.insuranceProvider || "");
-      setInsurancePolicy(data.insurancePolicyNumber || "");
       setNotes(data.notes || "");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load patient chart.");
@@ -88,9 +84,6 @@ export default function ReceptionPatientDetailPage() {
         {
           phone,
           email: email || undefined,
-          address: address || undefined,
-          insuranceProvider: insuranceProvider || undefined,
-          insurancePolicyNumber: insurancePolicy || undefined,
           notes: notes || undefined,
         },
         accessToken
@@ -106,15 +99,15 @@ export default function ReceptionPatientDetailPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageBody.trim()) return;
+    if (!messageBody.trim() || !patient) return;
 
     try {
       await sendReceptionMessage(
         {
-          patientId,
           channel: messageChannel,
+          recipient:
+            messageChannel === "email" ? patient.email || undefined : patient.phone,
           body: messageBody,
-          isInternalNote,
         },
         accessToken
       );
@@ -143,7 +136,7 @@ export default function ReceptionPatientDetailPage() {
         <p className="text-sm font-semibold text-gray-900 dark:text-white">{error || "Patient not found"}</p>
         <Link
           href="/reception/patients"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Return to Patient Directory</span>
@@ -159,7 +152,7 @@ export default function ReceptionPatientDetailPage() {
         <div className="space-y-1">
           <Link
             href="/reception/patients"
-            className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white"
+            className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>Back to Patient Directory</span>
@@ -168,8 +161,8 @@ export default function ReceptionPatientDetailPage() {
             <h1 className="text-2xl font-display font-semibold text-gray-900 dark:text-white">
               {patient.fullName}
             </h1>
-            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-              MRN: {patient.mrn || "Pending"}
+            <span className="text-xs font-mono px-3 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+              Patient since {new Date(patient.createdAt).toLocaleDateString()}
             </span>
           </div>
         </div>
@@ -177,7 +170,7 @@ export default function ReceptionPatientDetailPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsEditOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs cursor-pointer transition-colors"
           >
             <Edit2 className="h-3.5 w-3.5" />
             <span>Edit Info</span>
@@ -185,7 +178,7 @@ export default function ReceptionPatientDetailPage() {
 
           <button
             onClick={() => setIsMessageOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs cursor-pointer transition-colors"
           >
             <MessageSquare className="h-3.5 w-3.5 text-blue-500" />
             <span>Log Communication</span>
@@ -193,7 +186,7 @@ export default function ReceptionPatientDetailPage() {
 
           <Link
             href="/reception/schedule"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Book Visit</span>
@@ -212,7 +205,7 @@ export default function ReceptionPatientDetailPage() {
 
             <div className="space-y-3 text-xs">
               <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                <Phone className="h-4 w-4 text-emerald-600 shrink-0" />
+                <Phone className="h-4 w-4 text-primary shrink-0" />
                 <a href={`tel:${patient.phone}`} className="font-mono hover:underline">
                   {patient.phone}
                 </a>
@@ -225,38 +218,7 @@ export default function ReceptionPatientDetailPage() {
 
               <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <Calendar className="h-4 w-4 text-purple-600 shrink-0" />
-                <span>
-                  DOB: {patient.dateOfBirth || "Unknown"} {patient.gender ? `(${patient.gender})` : ""}
-                </span>
-              </div>
-
-              <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
-                <p className="text-[11px] font-semibold text-gray-500 mb-1">Address</p>
-                <p className="text-gray-700 dark:text-gray-300">{patient.address || "No address recorded"}</p>
-              </div>
-
-              <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
-                <p className="text-[11px] font-semibold text-gray-500 mb-1">Emergency Contact</p>
-                <p className="text-gray-700 dark:text-gray-300">
-                  {patient.emergencyContactName ? (
-                    <>
-                      {patient.emergencyContactName}{" "}
-                      <span className="font-mono text-gray-400">({patient.emergencyContactPhone || "No phone"})</span>
-                    </>
-                  ) : (
-                    "None listed"
-                  )}
-                </p>
-              </div>
-
-              <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
-                <p className="text-[11px] font-semibold text-gray-500 mb-1">Insurance</p>
-                <p className="text-gray-700 dark:text-gray-300">
-                  {patient.insuranceProvider || "Self-Pay / None"}{" "}
-                  {patient.insurancePolicyNumber && (
-                    <span className="font-mono text-gray-400">#{patient.insurancePolicyNumber}</span>
-                  )}
-                </p>
+                <span>DOB: {patient.dateOfBirth || "Unknown"}</span>
               </div>
 
               {patient.notes && (
@@ -270,20 +232,28 @@ export default function ReceptionPatientDetailPage() {
             </div>
           </div>
 
-          {/* Recall Status Card */}
+          {/* Visit History Summary */}
           <div className="p-5 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xs space-y-3">
             <h2 className="text-xs font-mono uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              Preventive Recall Status
+              Visit History
             </h2>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-600 dark:text-gray-400">Status</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-mono uppercase font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                {patient.recallStatus || "Up to date"}
+              <span className="text-xs text-gray-600 dark:text-gray-400">Upcoming visits</span>
+              <span className="text-xs font-mono font-semibold text-gray-900 dark:text-white">
+                {patient.upcomingBookings.length}
               </span>
             </div>
-            {patient.recallDue && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Past visits</span>
+              <span className="text-xs font-mono font-semibold text-gray-900 dark:text-white">
+                {patient.pastBookings.length}
+              </span>
+            </div>
+            {patient.pastBookings[0] && (
               <p className="text-xs text-gray-500">
-                Recommended next visit: <strong className="font-mono text-gray-900 dark:text-white">{patient.recallDue}</strong>
+                Last seen: <strong className="font-mono text-gray-900 dark:text-white">
+                  {patient.pastBookings[0].bookingDate}
+                </strong>
               </p>
             )}
           </div>
@@ -311,10 +281,10 @@ export default function ReceptionPatientDetailPage() {
                         {b.bookingDate} at {b.bookingTime}
                       </p>
                       <p className="text-gray-500 text-[11px] mt-0.5">
-                        {b.serviceName || "Consultation"} · {b.providerName || "Assigned Provider"}
+                        {directory.serviceName(b.serviceId) || "Consultation"} · {directory.providerName(b.providerId) || "Assigned Provider"}
                       </p>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                       {b.status}
                     </span>
                   </div>
@@ -343,10 +313,10 @@ export default function ReceptionPatientDetailPage() {
                         {b.bookingDate} ({b.bookingTime})
                       </p>
                       <p className="text-gray-500 text-[11px] mt-0.5">
-                        {b.serviceName || "Visit"} · {b.providerName || "Provider"}
+                        {directory.serviceName(b.serviceId) || "Visit"} · {directory.providerName(b.providerId) || "Provider"}
                       </p>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase bg-primary/10 text-primary font-bold">
                       {b.status}
                     </span>
                   </div>
@@ -355,32 +325,28 @@ export default function ReceptionPatientDetailPage() {
             )}
           </div>
 
-          {/* Communication & Notes Log */}
+          {/* Front-Desk Activity Summary */}
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4 shadow-xs">
             <h2 className="text-xs font-mono uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              Front-Desk Communication Log
+              Front-Desk Activity
             </h2>
-
-            {(!patient.messages || patient.messages.length === 0) ? (
-              <p className="text-xs text-gray-400 italic py-2">No messages or communication logs recorded.</p>
-            ) : (
-              <div className="space-y-2">
-                {patient.messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 text-xs space-y-1"
-                  >
-                    <div className="flex items-center justify-between text-[11px] text-gray-400 font-mono">
-                      <span className="uppercase font-semibold text-gray-600 dark:text-gray-300">
-                        {m.isInternalNote ? "Internal Note" : `${m.channel} · ${m.direction}`}
-                      </span>
-                      <span>{m.createdAt ? new Date(m.createdAt).toLocaleDateString() : ""}</span>
-                    </div>
-                    <p className="text-gray-800 dark:text-gray-200">{m.body}</p>
-                  </div>
-                ))}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
+                <p className="text-[11px] text-gray-500">Tasks on record</p>
+                <p className="text-lg font-mono font-semibold text-gray-900 dark:text-white">
+                  {patient.taskCount}
+                </p>
               </div>
-            )}
+              <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
+                <p className="text-[11px] text-gray-500">Messages on record</p>
+                <p className="text-lg font-mono font-semibold text-gray-900 dark:text-white">
+                  {patient.messageCount}
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-400">
+              The full communication log lives in the Communications Center.
+            </p>
           </div>
         </div>
       </div>
@@ -393,7 +359,10 @@ export default function ReceptionPatientDetailPage() {
               <h2 className="text-base font-display font-semibold text-gray-900 dark:text-white">
                 Edit Patient Information
               </h2>
-              <button onClick={() => setIsEditOpen(false)} className="p-1 text-gray-400">
+              <button
+                onClick={() => setIsEditOpen(false)}
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -407,7 +376,7 @@ export default function ReceptionPatientDetailPage() {
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 font-mono"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 font-mono focus:border-primary"
                   />
                 </div>
                 <div className="space-y-1">
@@ -416,38 +385,7 @@ export default function ReceptionPatientDetailPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-medium text-gray-700 dark:text-gray-300">Address</label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-medium text-gray-700 dark:text-gray-300">Insurance Provider</label>
-                  <input
-                    type="text"
-                    value={insuranceProvider}
-                    onChange={(e) => setInsuranceProvider(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-medium text-gray-700 dark:text-gray-300">Policy Number</label>
-                  <input
-                    type="text"
-                    value={insurancePolicy}
-                    onChange={(e) => setInsurancePolicy(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 font-mono"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                   />
                 </div>
               </div>
@@ -458,7 +396,7 @@ export default function ReceptionPatientDetailPage() {
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                 />
               </div>
 
@@ -466,14 +404,14 @@ export default function ReceptionPatientDetailPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
+                  className="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold"
+                  className="px-4 py-2 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
                 >
                   {isSaving ? "Saving..." : "Save Changes"}
                 </button>
@@ -491,7 +429,10 @@ export default function ReceptionPatientDetailPage() {
               <h2 className="text-base font-display font-semibold text-gray-900 dark:text-white">
                 Log Patient Communication
               </h2>
-              <button onClick={() => setIsMessageOpen(false)} className="p-1 text-gray-400">
+              <button
+                onClick={() => setIsMessageOpen(false)}
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -503,7 +444,7 @@ export default function ReceptionPatientDetailPage() {
                   <select
                     value={messageChannel}
                     onChange={(e) => setMessageChannel(e.target.value as "sms" | "email" | "portal" | "whatsapp")}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                   >
                     <option value="sms">SMS</option>
                     <option value="email">Email</option>
@@ -518,7 +459,7 @@ export default function ReceptionPatientDetailPage() {
                       type="checkbox"
                       checked={isInternalNote}
                       onChange={(e) => setIsInternalNote(e.target.checked)}
-                      className="rounded border-gray-300 text-emerald-600"
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
                     />
                     <span>Internal Staff Note</span>
                   </label>
@@ -533,7 +474,7 @@ export default function ReceptionPatientDetailPage() {
                   placeholder="Record conversation summary or outbound message text..."
                   value={messageBody}
                   onChange={(e) => setMessageBody(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                 />
               </div>
 
@@ -541,13 +482,13 @@ export default function ReceptionPatientDetailPage() {
                 <button
                   type="button"
                   onClick={() => setIsMessageOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
+                  className="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold"
+                  className="px-4 py-2 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
                 >
                   Save to Chart
                 </button>

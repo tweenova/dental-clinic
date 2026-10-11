@@ -89,7 +89,7 @@ export default function ReceptionTasksPage() {
     }
   };
 
-  const handleStatusChange = async (taskId: string, newStatus: "open" | "in_progress" | "completed" | "cancelled") => {
+  const handleStatusChange = async (taskId: string, newStatus: "pending" | "open" | "in_progress" | "completed" | "cancelled") => {
     try {
       await updateReceptionTask(taskId, { status: newStatus }, accessToken);
       await loadTasks();
@@ -113,7 +113,7 @@ export default function ReceptionTasksPage() {
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           <span>Create Task</span>
@@ -132,9 +132,9 @@ export default function ReceptionTasksPage() {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
                 statusFilter === tab.id
-                  ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold"
+                  ? "bg-primary text-white font-semibold shadow-xs"
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
             >
@@ -148,7 +148,7 @@ export default function ReceptionTasksPage() {
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-700 dark:text-gray-300"
+            className="px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-700 dark:text-gray-300 focus:border-primary"
           >
             <option value="">All Priorities</option>
             <option value="urgent">Urgent</option>
@@ -167,7 +167,7 @@ export default function ReceptionTasksPage() {
           </div>
         ) : tasks.length === 0 ? (
           <div className="p-12 text-center space-y-2">
-            <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+            <CheckCircle2 className="h-8 w-8 text-primary mx-auto" />
             <p className="text-sm font-semibold text-gray-900 dark:text-white">
               No tasks in this queue
             </p>
@@ -185,13 +185,13 @@ export default function ReceptionTasksPage() {
                     onClick={() =>
                       handleStatusChange(
                         task.id,
-                        task.status === "completed" ? "open" : "completed"
+                        task.status === "completed" ? "pending" : "completed"
                       )
                     }
-                    className={`mt-0.5 grid h-5 w-5 place-items-center rounded-md border transition-colors ${
+                    className={`mt-0.5 grid h-5 w-5 place-items-center rounded-md border transition-colors cursor-pointer ${
                       task.status === "completed"
-                        ? "bg-emerald-600 border-emerald-600 text-white"
-                        : "border-gray-300 dark:border-gray-700 hover:border-emerald-600"
+                        ? "bg-primary border-primary text-white"
+                        : "border-gray-300 dark:border-gray-700 hover:border-primary"
                     }`}
                   >
                     {task.status === "completed" && <Check className="h-3.5 w-3.5" />}
@@ -214,7 +214,6 @@ export default function ReceptionTasksPage() {
                     )}
                     <div className="flex items-center gap-3 text-[10px] text-gray-400 font-mono">
                       {task.dueDate && <span>Due: {task.dueDate}</span>}
-                      {task.patientName && <span>Patient: {task.patientName}</span>}
                     </div>
                   </div>
                 </div>
@@ -222,7 +221,7 @@ export default function ReceptionTasksPage() {
                 <div className="flex items-center gap-2">
                   <span
                     className={`
-                      px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold
+                      px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold
                       ${
                         task.priority === "urgent"
                           ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
@@ -238,7 +237,7 @@ export default function ReceptionTasksPage() {
                   {task.status !== "completed" && (
                     <button
                       onClick={() => handleStatusChange(task.id, "completed")}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium hover:bg-emerald-100"
+                      className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors cursor-pointer"
                     >
                       Done
                     </button>
@@ -258,7 +257,10 @@ export default function ReceptionTasksPage() {
               <h2 className="text-base font-display font-semibold text-gray-900 dark:text-white">
                 Create Front-Desk Task
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -272,7 +274,7 @@ export default function ReceptionTasksPage() {
                   placeholder="e.g. Call patient to verify secondary insurance"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white focus:border-primary"
                 />
               </div>
 
@@ -283,7 +285,7 @@ export default function ReceptionTasksPage() {
                   placeholder="Details for yourself or team members..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white focus:border-primary"
                 />
               </div>
 
@@ -293,7 +295,7 @@ export default function ReceptionTasksPage() {
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high" | "urgent")}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -308,7 +310,7 @@ export default function ReceptionTasksPage() {
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 font-mono"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 font-mono focus:border-primary"
                   />
                 </div>
               </div>
@@ -317,14 +319,14 @@ export default function ReceptionTasksPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
+                  className="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold"
+                  className="px-4 py-2 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
                 >
                   {isSubmitting ? "Creating..." : "Save Task"}
                 </button>

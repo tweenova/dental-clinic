@@ -8,46 +8,36 @@ import {
   Clock,
   Phone,
   Plus,
-  RefreshCw,
   User,
   Zap,
 } from "lucide-react";
 
-import { ReceptionWaitlistItem } from "@/lib/api";
+import { getReceptionWaitlist, ReceptionBooking } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useDirectory } from "@/lib/directory";
 
 export default function ReceptionWaitlistPage() {
   const { accessToken } = useAuth();
+  const directory = useDirectory();
 
-  // Mock / state waitlist items initialized with real clinic demo entries
-  const [waitlist, setWaitlist] = useState<ReceptionWaitlistItem[]>([
-    {
-      id: "wl-1",
-      patientId: "pat-sample-1",
-      patientName: "Sarah Jenkins",
-      patientPhone: "+1-555-0199",
-      serviceName: "Comprehensive Dental Exam & Cleaning",
-      priority: "high",
-      status: "waiting",
-      availableDays: ["Mondays", "Wednesdays", "Fridays"],
-      preferredTimeOfDay: "Mornings (9am - 12pm)",
-      notes: "Can arrive within 30 minutes if there is a cancellation",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "wl-2",
-      patientId: "pat-sample-2",
-      patientName: "Michael Chang",
-      patientPhone: "+1-555-0188",
-      serviceName: "Crown Fitting",
-      priority: "urgent",
-      status: "waiting",
-      availableDays: ["Any weekday"],
-      preferredTimeOfDay: "Afternoons (2pm - 5pm)",
-      notes: "Temporary crown in place, prefers earliest possible slot",
-      createdAt: new Date().toISOString(),
-    },
-  ]);
+  const [waitlist, setWaitlist] = useState<ReceptionBooking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadWaitlist = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getReceptionWaitlist(accessToken);
+      setWaitlist(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadWaitlist();
+  }, [accessToken]);
 
   return (
     <div className="space-y-6">
@@ -64,7 +54,7 @@ export default function ReceptionWaitlistPage() {
 
         <Link
           href="/reception/schedule"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors"
         >
           <Plus className="h-4 w-4" />
           <span>Add Patient to ASAP List</span>
@@ -73,14 +63,18 @@ export default function ReceptionWaitlistPage() {
 
       {/* Waitlist Queue */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-xs">
-        {waitlist.length === 0 ? (
+        {isLoading ? (
+          <div className="p-12 text-center text-xs font-mono text-gray-500">
+            Loading ASAP waitlist...
+          </div>
+        ) : waitlist.length === 0 ? (
           <div className="p-12 text-center space-y-2">
             <Zap className="h-8 w-8 text-gray-400 mx-auto" />
             <p className="text-sm font-semibold text-gray-900 dark:text-white">
               No patients on the ASAP waitlist
             </p>
             <p className="text-xs text-gray-500">
-              When patients request earlier openings, add them here to fill cancellations.
+              When patients request earlier openings, add them from the schedule to fill cancellations.
             </p>
           </div>
         ) : (
@@ -88,39 +82,39 @@ export default function ReceptionWaitlistPage() {
             {waitlist.map((item) => (
               <div
                 key={item.id}
-                className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 text-xs"
+                className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors text-xs"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3">
-                    <span className="font-semibold text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
-                      <User className="h-4 w-4 text-emerald-600" />
-                      {item.patientName}
-                    </span>
-                    <span
-                      className={`
-                        px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold
-                        ${
-                          item.priority === "urgent"
-                            ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
-                            : item.priority === "high"
-                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                            : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                        }
-                      `}
-                    >
-                      {item.priority} priority
+                    {item.patientId ? (
+                      <Link
+                        href={`/reception/patients/${item.patientId}`}
+                        className="font-semibold text-sm text-primary hover:underline flex items-center gap-1.5"
+                      >
+                        <User className="h-4 w-4" />
+                        <span>{item.patientName}</span>
+                      </Link>
+                    ) : (
+                      <span className="font-semibold text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                        <User className="h-4 w-4 text-primary" />
+                        {item.patientName}
+                      </span>
+                    )}
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-clay/15 text-clay">
+                      {item.status.replace("_", " ")}
                     </span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-gray-600 dark:text-gray-400">
                     <span className="inline-flex items-center gap-1 font-mono">
-                      <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                      <Phone className="h-3.5 w-3.5 text-primary" />
                       <a href={`tel:${item.patientPhone}`} className="hover:underline">
                         {item.patientPhone}
                       </a>
                     </span>
-                    <span>Service: {item.serviceName || "Any Appointment"}</span>
-                    <span>Preferred: {item.preferredTimeOfDay || "Any time"}</span>
+                    <span>Requested: {item.bookingDate} at {item.bookingTime}</span>
+                    <span>Service: {directory.serviceName(item.serviceId) || "Any Appointment"}</span>
+                    <span>Provider: {directory.providerName(item.providerId) || "Any Provider"}</span>
                   </div>
 
                   {item.notes && (
@@ -133,17 +127,17 @@ export default function ReceptionWaitlistPage() {
                 <div className="flex items-center gap-2 shrink-0">
                   <a
                     href={`tel:${item.patientPhone}`}
-                    className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"
+                    className="px-3.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium transition-colors"
                   >
                     Call Patient
                   </a>
 
                   <Link
                     href="/reception/schedule"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 shadow-xs"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 shadow-xs transition-colors"
                   >
                     <Calendar className="h-3.5 w-3.5" />
-                    <span>Fill Slot</span>
+                    <span>Schedule</span>
                   </Link>
                 </div>
               </div>

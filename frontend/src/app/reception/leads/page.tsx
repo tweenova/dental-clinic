@@ -127,7 +127,7 @@ export default function ReceptionLeadsPage() {
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           <span>New Lead</span>
@@ -147,9 +147,9 @@ export default function ReceptionLeadsPage() {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
                 statusFilter === tab.id
-                  ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold"
+                  ? "bg-primary text-white font-semibold shadow-xs"
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
             >
@@ -178,7 +178,7 @@ export default function ReceptionLeadsPage() {
             {leads.map((l) => (
               <div
                 key={l.id}
-                className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 text-xs"
+                className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors text-xs"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3">
@@ -187,16 +187,16 @@ export default function ReceptionLeadsPage() {
                     </span>
                     <span
                       className={`
-                        px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold
+                        px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold
                         ${
                           l.status === "new"
                             ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
                             : l.status === "contacted"
                             ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
                             : l.status === "qualified"
-                            ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
+                            ? "bg-clay/15 text-clay font-bold"
                             : l.status === "converted"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                            ? "bg-primary/10 text-primary font-bold"
                             : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                         }
                       `}
@@ -207,7 +207,7 @@ export default function ReceptionLeadsPage() {
 
                   <div className="flex flex-wrap items-center gap-4 text-gray-600 dark:text-gray-400">
                     <span className="inline-flex items-center gap-1 font-mono">
-                      <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                      <Phone className="h-3.5 w-3.5 text-primary" />
                       <a href={`tel:${l.phone}`} className="hover:underline">
                         {l.phone}
                       </a>
@@ -233,7 +233,7 @@ export default function ReceptionLeadsPage() {
                       {l.status === "new" && (
                         <button
                           onClick={() => handleStatusChange(l.id, "contacted")}
-                          className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 font-medium"
+                          className="px-3.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium transition-colors cursor-pointer"
                         >
                           Mark Contacted
                         </button>
@@ -242,7 +242,7 @@ export default function ReceptionLeadsPage() {
                       <button
                         onClick={() => handleConvert(l.id)}
                         disabled={actionLoadingId === l.id}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 shadow-xs"
+                        className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
                       >
                         <UserCheck className="h-3.5 w-3.5" />
                         <span>Convert to Patient Chart</span>
@@ -253,10 +253,10 @@ export default function ReceptionLeadsPage() {
                   {l.status === "converted" && l.convertedPatientId && (
                     <Link
                       href={`/reception/patients/${l.convertedPatientId}`}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-semibold hover:bg-emerald-50"
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-primary/30 text-primary font-semibold hover:bg-primary/10 transition-colors"
                     >
                       <span>Open Patient Chart</span>
-                      <ArrowRight className="h-3 w-3" />
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   )}
                 </div>
@@ -274,7 +274,10 @@ export default function ReceptionLeadsPage() {
               <h2 className="text-base font-display font-semibold text-gray-900 dark:text-white">
                 Register Inbound Lead
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 text-gray-400">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -288,7 +291,7 @@ export default function ReceptionLeadsPage() {
                     required
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                   />
                 </div>
                 <div className="space-y-1">
@@ -297,7 +300,7 @@ export default function ReceptionLeadsPage() {
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                   />
                 </div>
               </div>
@@ -311,7 +314,7 @@ export default function ReceptionLeadsPage() {
                     placeholder="+1-555-0199"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 font-mono"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 font-mono focus:border-primary"
                   />
                 </div>
                 <div className="space-y-1">
@@ -321,7 +324,7 @@ export default function ReceptionLeadsPage() {
                     placeholder="prospect@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                   />
                 </div>
               </div>
@@ -333,7 +336,7 @@ export default function ReceptionLeadsPage() {
                   placeholder="Inquiry reason, cosmetic interest, emergency pain, etc."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:border-primary"
                 />
               </div>
 
@@ -341,14 +344,14 @@ export default function ReceptionLeadsPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300"
+                  className="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold"
+                  className="px-4 py-2 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 cursor-pointer transition-colors"
                 >
                   {isSubmitting ? "Saving..." : "Save Lead"}
                 </button>

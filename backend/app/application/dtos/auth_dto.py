@@ -26,6 +26,8 @@ class UserResponse(BaseModel):
     fullName: str
     role: str
     isActive: bool
+    clinicId: Optional[UUID] = None
+    teamMemberId: Optional[UUID] = None
     inactivityEnabled: bool = True
     inactivityTimeoutMinutes: int = 15
     inactivityWarningSeconds: int = 60

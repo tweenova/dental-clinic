@@ -9,7 +9,10 @@ from app.application.services.announcement_service import AnnouncementService
 from app.application.services.appointment_service import AppointmentService
 from app.application.services.auth_service import AuthService
 from app.application.services.cms_service import CmsService
+from app.application.services.dental_chart_service import DentalChartService
 from app.application.services.doctor_service import DoctorService
+from app.application.services.clinical_note_service import ClinicalNoteService
+from app.application.services.encounter_service import EncounterService
 from app.application.services.organization_service import OrganizationService
 from app.application.services.reception_service import ReceptionService
 from app.application.services.service_service import ServiceService
@@ -20,7 +23,11 @@ from app.domain.models.user import User, UserRole
 from app.domain.repositories.announcement_repo import AnnouncementRepository
 from app.domain.repositories.appointment_repo import AppointmentRepository
 from app.domain.repositories.booking_repo import BookingRepository
+from app.domain.repositories.clinical_note_repo import ClinicalNoteRepository
 from app.domain.repositories.cms_repo import CmsRepository
+from app.domain.repositories.dental_chart_repo import DentalChartRepository
+from app.domain.repositories.dental_procedure_repo import DentalProcedureRepository
+from app.domain.repositories.encounter_repo import EncounterRepository
 from app.domain.repositories.lead_repo import LeadRepository
 from app.domain.repositories.message_repo import MessageRepository
 from app.domain.repositories.organization_repo import LocationRepository, OrganizationRepository
@@ -34,10 +41,15 @@ from app.domain.repositories.user_repo import (
     UserSessionRepository,
 )
 from app.domain.services.storage_service import StorageService
+from app.infrastructure.repositories.postgres_activity_repo import PostgresActivityLogRepository
 from app.infrastructure.repositories.postgres_announcement_repo import PostgresAnnouncementRepository
 from app.infrastructure.repositories.postgres_appointment_repo import PostgresAppointmentRepository
 from app.infrastructure.repositories.postgres_booking_repo import PostgresBookingRepository
+from app.infrastructure.repositories.postgres_clinical_note_repo import PostgresClinicalNoteRepository
 from app.infrastructure.repositories.postgres_cms_repo import PostgresCmsRepository
+from app.infrastructure.repositories.postgres_dental_chart_repo import PostgresDentalChartRepository
+from app.infrastructure.repositories.postgres_dental_procedure_repo import PostgresDentalProcedureRepository
+from app.infrastructure.repositories.postgres_encounter_repo import PostgresEncounterRepository
 from app.infrastructure.repositories.postgres_lead_repo import PostgresLeadRepository
 from app.infrastructure.repositories.postgres_message_repo import PostgresMessageRepository
 from app.infrastructure.repositories.postgres_organization_repo import (
@@ -158,8 +170,10 @@ def get_storage_service() -> StorageService:
 
 def get_appointment_service(
     repository: AppointmentRepository = Depends(get_appointment_repository),
+    booking_repo: BookingRepository = Depends(get_booking_repository),
+    patient_repo: PatientRepository = Depends(get_patient_repository),
 ) -> AppointmentService:
-    return AppointmentService(repository)
+    return AppointmentService(repository, booking_repo, patient_repo)
 
 
 def get_auth_service(
@@ -224,6 +238,83 @@ def get_doctor_service(
     booking_repo: BookingRepository = Depends(get_booking_repository),
 ) -> DoctorService:
     return DoctorService(booking_repo)
+
+
+def get_encounter_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> EncounterRepository:
+    return PostgresEncounterRepository(session)
+
+
+def get_encounter_service(
+    encounter_repo: EncounterRepository = Depends(get_encounter_repository),
+    patient_repo: PatientRepository = Depends(get_patient_repository),
+    booking_repo: BookingRepository = Depends(get_booking_repository),
+) -> EncounterService:
+    return EncounterService(
+        encounter_repo=encounter_repo,
+        patient_repo=patient_repo,
+        booking_repo=booking_repo,
+    )
+
+
+def get_activity_log_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> PostgresActivityLogRepository:
+    return PostgresActivityLogRepository(session)
+
+
+def get_clinical_note_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> ClinicalNoteRepository:
+    return PostgresClinicalNoteRepository(session)
+
+
+def get_clinical_note_service(
+    note_repo: ClinicalNoteRepository = Depends(get_clinical_note_repository),
+    encounter_repo: EncounterRepository = Depends(get_encounter_repository),
+    booking_repo: BookingRepository = Depends(get_booking_repository),
+    patient_repo: PatientRepository = Depends(get_patient_repository),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
+) -> ClinicalNoteService:
+    return ClinicalNoteService(
+        note_repo=note_repo,
+        encounter_repo=encounter_repo,
+        booking_repo=booking_repo,
+        patient_repo=patient_repo,
+        activity_repo=activity_repo,
+    )
+
+
+def get_dental_chart_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> DentalChartRepository:
+    return PostgresDentalChartRepository(session)
+
+
+def get_dental_procedure_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> DentalProcedureRepository:
+    return PostgresDentalProcedureRepository(session)
+
+
+def get_dental_chart_service(
+    chart_repo: DentalChartRepository = Depends(get_dental_chart_repository),
+    procedure_repo: DentalProcedureRepository = Depends(get_dental_procedure_repository),
+    encounter_repo: EncounterRepository = Depends(get_encounter_repository),
+    patient_repo: PatientRepository = Depends(get_patient_repository),
+    service_repo: ServiceRepository = Depends(get_service_repository),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
+) -> DentalChartService:
+    return DentalChartService(
+        chart_repo=chart_repo,
+        procedure_repo=procedure_repo,
+        encounter_repo=encounter_repo,
+        patient_repo=patient_repo,
+        service_repo=service_repo,
+        activity_repo=activity_repo,
+    )
+
 
 
 # --- Authentication & Authorization Dependencies ---

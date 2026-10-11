@@ -5,8 +5,6 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
-  Mail,
-  Phone,
   Plus,
   Search,
   User,
@@ -36,12 +34,6 @@ export default function ReceptionPatientsPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [dob, setDob] = useState("");
-  const [gender, setGender] = useState("");
-  const [address, setAddress] = useState("");
-  const [emergencyName, setEmergencyName] = useState("");
-  const [emergencyPhone, setEmergencyPhone] = useState("");
-  const [insuranceProvider, setInsuranceProvider] = useState("");
-  const [insurancePolicy, setInsurancePolicy] = useState("");
   const [notes, setNotes] = useState("");
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,12 +66,6 @@ export default function ReceptionPatientsPage() {
           phone,
           email: email || undefined,
           dateOfBirth: dob || undefined,
-          gender: gender || undefined,
-          address: address || undefined,
-          emergencyContactName: emergencyName || undefined,
-          emergencyContactPhone: emergencyPhone || undefined,
-          insuranceProvider: insuranceProvider || undefined,
-          insurancePolicyNumber: insurancePolicy || undefined,
           notes: notes || undefined,
           bypassDuplicateCheck: bypass,
         },
@@ -106,12 +92,6 @@ export default function ReceptionPatientsPage() {
     setPhone("");
     setEmail("");
     setDob("");
-    setGender("");
-    setAddress("");
-    setEmergencyName("");
-    setEmergencyPhone("");
-    setInsuranceProvider("");
-    setInsurancePolicy("");
     setNotes("");
     setDuplicateWarning(null);
   };
@@ -134,7 +114,7 @@ export default function ReceptionPatientsPage() {
             resetForm();
             setIsModalOpen(true);
           }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           <span>New Patient</span>
@@ -144,7 +124,7 @@ export default function ReceptionPatientsPage() {
       {/* Search Input Bar */}
       <div className="p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xs flex items-center justify-between gap-3">
         <div className="relative flex-1">
-          <Search className="h-4 w-4 text-gray-400 absolute left-3 top-3" />
+          <Search className="h-4 w-4 text-gray-400 absolute left-3.5 top-3" />
           <input
             type="text"
             placeholder="Search by patient name, phone, email, or MRN..."
@@ -153,7 +133,7 @@ export default function ReceptionPatientsPage() {
               setSearch(e.target.value);
               loadPatients(e.target.value);
             }}
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white"
+            className="w-full pl-10 pr-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white focus:border-primary"
           />
         </div>
         <span className="text-xs font-mono text-gray-400 shrink-0 px-2">
@@ -180,55 +160,38 @@ export default function ReceptionPatientsPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 uppercase font-mono text-[10px]">
                 <tr>
-                  <th className="px-4 py-3">Patient Name</th>
-                  <th className="px-4 py-3">Phone</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">MRN / DOB</th>
-                  <th className="px-4 py-3">Recall Status</th>
-                  <th className="px-4 py-3 text-right">Profile</th>
+                  <th className="px-5 py-3.5">Patient Name</th>
+                  <th className="px-5 py-3.5">Phone</th>
+                  <th className="px-5 py-3.5">Email</th>
+                  <th className="px-5 py-3.5">Date of Birth</th>
+                  <th className="px-5 py-3.5 text-right">Profile</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {patients.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40">
-                    <td className="px-4 py-3">
+                  <tr key={p.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition-colors">
+                    <td className="px-5 py-4">
                       <Link
                         href={`/reception/patients/${p.id}`}
-                        className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1.5"
+                        className="font-semibold text-primary hover:underline flex items-center gap-1.5"
                       >
                         <User className="h-3.5 w-3.5" />
                         <span>{p.fullName}</span>
                       </Link>
                     </td>
-                    <td className="px-4 py-3 font-mono text-gray-700 dark:text-gray-300">
+                    <td className="px-5 py-4 font-mono text-gray-700 dark:text-gray-300">
                       {p.phone}
                     </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                    <td className="px-5 py-4 text-gray-600 dark:text-gray-400">
                       {p.email || "—"}
                     </td>
-                    <td className="px-4 py-3 font-mono text-gray-500">
-                      {p.mrn || "—"} {p.dateOfBirth ? `(${p.dateOfBirth})` : ""}
+                    <td className="px-5 py-4 font-mono text-gray-500">
+                      {p.dateOfBirth || "—"}
                     </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`
-                          px-2 py-0.5 rounded-full text-[10px] font-mono capitalize
-                          ${
-                            p.recallStatus === "due"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold"
-                              : p.recallStatus === "overdue"
-                              ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-semibold"
-                              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                          }
-                        `}
-                      >
-                        {p.recallStatus || "Up to date"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-5 py-4 text-right">
                       <Link
                         href={`/reception/patients/${p.id}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                       >
                         <span>Open Chart</span>
                         <ArrowRight className="h-3 w-3" />
@@ -252,14 +215,14 @@ export default function ReceptionPatientsPage() {
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600"
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {duplicateWarning && (
-              <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-xs space-y-2">
+              <div className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-xs space-y-2">
                 <div className="flex items-start gap-2 text-amber-800 dark:text-amber-300">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <div>
@@ -271,7 +234,7 @@ export default function ReceptionPatientsPage() {
                   <button
                     type="button"
                     onClick={() => handleCreatePatient(true)}
-                    className="px-3 py-1 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700"
+                    className="px-3.5 py-1.5 rounded-full bg-amber-600 text-white font-medium hover:bg-amber-700 transition-colors cursor-pointer"
                   >
                     Bypass & Create Anyway
                   </button>
@@ -296,7 +259,7 @@ export default function ReceptionPatientsPage() {
                     required
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white focus:border-primary"
                   />
                 </div>
                 <div className="space-y-1">
@@ -308,7 +271,7 @@ export default function ReceptionPatientsPage() {
                     required
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white focus:border-primary"
                   />
                 </div>
               </div>
@@ -324,7 +287,7 @@ export default function ReceptionPatientsPage() {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="e.g. +1-555-0199"
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-mono text-gray-900 dark:text-white"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-mono text-gray-900 dark:text-white focus:border-primary"
                   />
                 </div>
                 <div className="space-y-1">
@@ -336,79 +299,21 @@ export default function ReceptionPatientsPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="patient@example.com"
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white"
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white focus:border-primary"
                   />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-mono text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Gender
-                  </label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="female">Female</option>
-                    <option value="male">Male</option>
-                    <option value="other">Other / Non-binary</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                  </select>
                 </div>
               </div>
 
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  Residential Address
+                  Date of Birth
                 </label>
                 <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="123 Main St, Anytown"
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white"
+                  type="date"
+                  value={dob}
+                  onChange={(e) => setDob(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-mono text-gray-900 dark:text-white focus:border-primary"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Insurance Provider
-                  </label>
-                  <input
-                    type="text"
-                    value={insuranceProvider}
-                    onChange={(e) => setInsuranceProvider(e.target.value)}
-                    placeholder="e.g. Delta Dental"
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Policy Number
-                  </label>
-                  <input
-                    type="text"
-                    value={insurancePolicy}
-                    onChange={(e) => setInsurancePolicy(e.target.value)}
-                    placeholder="e.g. D1234567"
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-mono text-gray-900 dark:text-white"
-                  />
-                </div>
               </div>
 
               <div className="space-y-1">
@@ -420,7 +325,7 @@ export default function ReceptionPatientsPage() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Pre-med requirements, preferred appointment times, etc."
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-900 dark:text-white focus:border-primary"
                 />
               </div>
 
@@ -428,14 +333,14 @@ export default function ReceptionPatientsPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700"
+                  className="px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
                 >
                   {isSubmitting ? "Creating..." : "Save Patient Chart"}
                 </button>

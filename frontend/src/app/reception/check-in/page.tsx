@@ -20,10 +20,13 @@ import {
   ReceptionBooking,
   updateReceptionBookingStatus,
 } from "@/lib/api";
+
 import { useAuth } from "@/components/providers/auth-provider";
+import { useDirectory } from "@/lib/directory";
 
 export default function ReceptionCheckInPage() {
   const { accessToken } = useAuth();
+  const directory = useDirectory();
   const [bookings, setBookings] = useState<ReceptionBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -60,9 +63,13 @@ export default function ReceptionCheckInPage() {
     }
   };
 
-  const waitingPatients = bookings.filter((b) => b.status === "arrived");
+  const waitingPatients = bookings.filter(
+    (b) => b.status === "arrived" || b.status === "checked_in" || b.status === "waiting"
+  );
   const inProgressPatients = bookings.filter((b) => b.status === "in_progress");
-  const scheduledUpcoming = bookings.filter((b) => b.status === "scheduled");
+  const scheduledUpcoming = bookings.filter(
+    (b) => b.status === "confirmed" || b.status === "scheduled"
+  );
   const completedPatients = bookings.filter((b) => b.status === "completed");
 
   return (
@@ -80,7 +87,7 @@ export default function ReceptionCheckInPage() {
 
         <button
           onClick={loadFlow}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs cursor-pointer transition-colors"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           <span>Refresh Flow</span>
@@ -107,21 +114,21 @@ export default function ReceptionCheckInPage() {
               scheduledUpcoming.map((b) => (
                 <div
                   key={b.id}
-                  className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xs space-y-3 hover:border-emerald-500/50 transition-colors"
+                  className="p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xs space-y-3 hover:border-primary/50 transition-colors"
                 >
                   <div className="flex items-start justify-between">
                     <div>
                       <Link
                         href={`/reception/patients/${b.patientId}`}
-                        className="font-semibold text-xs text-gray-900 dark:text-white hover:text-emerald-600 block"
+                        className="font-semibold text-xs text-gray-900 dark:text-white hover:text-primary block"
                       >
                         {b.patientName || "Patient"}
                       </Link>
                       <p className="text-[11px] text-gray-500 mt-0.5">
-                        {b.serviceName || "Visit"} · {b.providerName || "Assigned Provider"}
+                        {directory.serviceName(b.serviceId) || "Visit"} · {directory.providerName(b.providerId) || "Assigned Provider"}
                       </p>
                     </div>
-                    <span className="font-mono text-xs font-bold text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <span className="font-mono text-xs font-bold text-gray-700 dark:text-gray-300 px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800">
                       {b.bookingTime}
                     </span>
                   </div>
@@ -130,7 +137,7 @@ export default function ReceptionCheckInPage() {
                     <button
                       onClick={() => handleTransition(b.id, "no_show")}
                       disabled={actionLoadingId === b.id}
-                      className="text-[11px] text-gray-400 hover:text-red-600"
+                      className="text-[11px] text-gray-400 hover:text-red-600 cursor-pointer"
                     >
                       No Show
                     </button>
@@ -138,7 +145,7 @@ export default function ReceptionCheckInPage() {
                     <button
                       onClick={() => handleTransition(b.id, "arrived")}
                       disabled={actionLoadingId === b.id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 shadow-2xs transition-colors cursor-pointer"
                     >
                       <UserCheck className="h-3.5 w-3.5" />
                       <span>Check In Patient</span>
@@ -174,23 +181,18 @@ export default function ReceptionCheckInPage() {
                     <div>
                       <Link
                         href={`/reception/patients/${b.patientId}`}
-                        className="font-semibold text-xs text-gray-900 dark:text-white hover:text-emerald-600 block"
+                        className="font-semibold text-xs text-gray-900 dark:text-white hover:text-primary block"
                       >
                         {b.patientName || "Patient"}
                       </Link>
                       <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
-                        {b.serviceName || "Consultation"} · {b.providerName || "Provider"}
+                        {directory.serviceName(b.serviceId) || "Consultation"} · {directory.providerName(b.providerId) || "Provider"}
                       </p>
                     </div>
                     <div className="text-right">
                       <span className="font-mono text-xs font-bold text-amber-700 dark:text-amber-300 block">
                         {b.bookingTime}
                       </span>
-                      {b.arrivalTime && (
-                        <span className="text-[10px] text-amber-600 font-mono">
-                          Arrived: {b.arrivalTime}
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -198,7 +200,7 @@ export default function ReceptionCheckInPage() {
                     <button
                       onClick={() => handleTransition(b.id, "in_progress")}
                       disabled={actionLoadingId === b.id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700 shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-clay text-white text-xs font-semibold hover:bg-clay/90 shadow-2xs transition-colors cursor-pointer"
                     >
                       <Play className="h-3.5 w-3.5" />
                       <span>Send to Chair / Doctor</span>
@@ -213,10 +215,10 @@ export default function ReceptionCheckInPage() {
         {/* Column 3: With Provider / In Progress */}
         <div className="space-y-3">
           <div className="flex items-center justify-between px-2">
-            <h2 className="text-xs font-mono uppercase tracking-wider text-teal-600 dark:text-teal-400 font-semibold">
+            <h2 className="text-xs font-mono uppercase tracking-wider text-primary font-semibold">
               With Provider ({inProgressPatients.length})
             </h2>
-            <span className="text-[10px] font-mono text-teal-500">In Progress</span>
+            <span className="text-[10px] font-mono text-primary">In Progress</span>
           </div>
 
           <div className="space-y-3">
@@ -228,30 +230,30 @@ export default function ReceptionCheckInPage() {
               inProgressPatients.map((b) => (
                 <div
                   key={b.id}
-                  className="p-4 rounded-2xl bg-teal-50/40 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/60 shadow-xs space-y-3"
+                  className="p-4 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 shadow-xs space-y-3"
                 >
                   <div className="flex items-start justify-between">
                     <div>
                       <Link
                         href={`/reception/patients/${b.patientId}`}
-                        className="font-semibold text-xs text-gray-900 dark:text-white hover:text-emerald-600 block"
+                        className="font-semibold text-xs text-gray-900 dark:text-white hover:text-primary block"
                       >
                         {b.patientName || "Patient"}
                       </Link>
                       <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
-                        {b.serviceName || "Treatment"} · <strong>{b.providerName || "Doctor"}</strong>
+                        {directory.serviceName(b.serviceId) || "Treatment"} · <strong>{directory.providerName(b.providerId) || "Doctor"}</strong>
                       </p>
                     </div>
-                    <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-300">
+                    <span className="font-mono text-xs font-bold text-primary">
                       {b.bookingTime}
                     </span>
                   </div>
 
-                  <div className="pt-2 border-t border-teal-100 dark:border-teal-900/40 flex items-center justify-end">
+                  <div className="pt-2 border-t border-primary/15 flex items-center justify-end">
                     <button
                       onClick={() => handleTransition(b.id, "completed")}
                       disabled={actionLoadingId === b.id}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-2xs"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-2xs transition-colors cursor-pointer"
                     >
                       <CheckCircle className="h-3.5 w-3.5" />
                       <span>Complete Checkout</span>

@@ -37,6 +37,7 @@ class PostgresUserRepository(UserRepository):
             role=role,
             is_active=orm.is_active,
             clinic_id=orm.clinic_id if hasattr(orm, "clinic_id") else None,
+            team_member_id=orm.team_member_id if hasattr(orm, "team_member_id") else None,
             inactivity_enabled=orm.inactivity_enabled,
             inactivity_timeout_minutes=orm.inactivity_timeout_minutes,
             inactivity_warning_seconds=orm.inactivity_warning_seconds,
@@ -52,6 +53,8 @@ class PostgresUserRepository(UserRepository):
             hashed_password=domain.hashed_password,
             full_name=domain.full_name,
             role=domain.role.value,
+            clinic_id=domain.clinic_id,
+            team_member_id=domain.team_member_id,
             is_active=domain.is_active,
             inactivity_enabled=domain.inactivity_enabled,
             inactivity_timeout_minutes=domain.inactivity_timeout_minutes,
@@ -79,6 +82,8 @@ class PostgresUserRepository(UserRepository):
             existing.hashed_password = user.hashed_password
             existing.full_name = user.full_name
             existing.role = user.role.value
+            existing.clinic_id = user.clinic_id
+            existing.team_member_id = user.team_member_id
             existing.is_active = user.is_active
             existing.inactivity_enabled = user.inactivity_enabled
             existing.inactivity_timeout_minutes = user.inactivity_timeout_minutes

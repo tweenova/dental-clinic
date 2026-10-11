@@ -30,6 +30,7 @@ class User:
     inactivity_timeout_minutes: int = 15
     inactivity_warning_seconds: int = 60
     clinic_id: Optional[UUID] = None
+    team_member_id: Optional[UUID] = None
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
