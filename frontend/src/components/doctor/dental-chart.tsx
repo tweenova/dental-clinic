@@ -204,7 +204,9 @@ export function DentalChart({
 
   useEffect(() => {
     if (patientId) {
-      loadChart();
+      queueMicrotask(() => {
+        loadChart();
+      });
     }
   }, [patientId, token]);
 
@@ -220,7 +222,7 @@ export function DentalChart({
       }
     }
     return map;
-  }, [chartData?.findings]);
+  }, [chartData]);
 
   // Derive procedures per tooth
   const proceduresByTooth = useMemo(() => {
@@ -232,7 +234,7 @@ export function DentalChart({
       map.set(p.tooth, list);
     }
     return map;
-  }, [chartData?.procedures]);
+  }, [chartData]);
 
   // Find condition metadata
   const currentConditionMeta = useMemo(() => {

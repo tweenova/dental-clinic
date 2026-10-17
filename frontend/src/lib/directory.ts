@@ -9,6 +9,8 @@ interface Directory {
   providerName: (id?: string | null) => string | null;
   /** Resolves a service id to its title (null when unknown). */
   serviceName: (id?: string | null) => string | null;
+  services: ServiceItem[];
+  providers: TeamMember[];
   isLoading: boolean;
 }
 
@@ -39,6 +41,8 @@ export function useDirectory(): Directory {
     providerName: (id) =>
       id ? providers.find((member) => member.id === id)?.displayName ?? null : null,
     serviceName: (id) => (id ? services.find((svc) => svc.id === id)?.title ?? null : null),
+    services,
+    providers,
     isLoading,
   };
 }

@@ -58,7 +58,9 @@ export default function ReceptionLeadsPage() {
   };
 
   useEffect(() => {
-    loadLeads();
+    queueMicrotask(() => {
+      loadLeads();
+    });
   }, [statusFilter, accessToken]);
 
   const handleCreateLead = async (e: React.FormEvent) => {

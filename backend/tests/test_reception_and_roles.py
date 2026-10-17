@@ -55,7 +55,7 @@ async def test_receptionist_dashboard_and_counts(receptionist_auth, test_session
         patient_full_name="Bob Smith",
         patient_phone="3125550102",
         patient_email="bob@example.com",
-        status="checked_in",
+        status="arrived",
     )
     await booking_repo.save(b1)
     await booking_repo.save(b2)
@@ -66,7 +66,8 @@ async def test_receptionist_dashboard_and_counts(receptionist_auth, test_session
     data = resp.json()
     assert data["todayAppointments"] == 2
     assert data["confirmedCount"] == 1
-    assert data["checkedInCount"] == 1
+    assert data["checkedInCount"] == 0
+    assert data["waitingCount"] == 1
     assert len(data["todayFlow"]) == 2
 
 
@@ -93,11 +94,11 @@ async def test_receptionist_appointment_lifecycle(receptionist_auth):
     assert booking["status"] == "confirmed"
     assert booking["patientFullName"] == "Charlie Davis"
 
-    # 2. Check-in status update
+    # 2. Check-in status update (normalised to canonical 'arrived')
     status_payload = {"status": "checked_in", "staffNotes": "Arrived 5 mins early."}
     resp2 = await client.patch(f"/api/v1/reception/appointments/{booking_id}/status", json=status_payload, headers=headers)
     assert resp2.status_code == 200
-    assert resp2.json()["status"] == "checked_in"
+    assert resp2.json()["status"] == "arrived"
     assert resp2.json()["staffNotes"] == "Arrived 5 mins early."
 
     # 3. Reschedule
@@ -161,9 +162,9 @@ async def test_receptionist_tasks_and_leads(receptionist_auth):
     task_id = resp.json()["id"]
 
     # 2. Update task
-    resp2 = await client.patch(f"/api/v1/reception/tasks/{task_id}", json={"status": "completed"}, headers=headers)
+    resp2 = await client.patch(f"/api/v1/reception/tasks/{task_id}", json={"status": "done"}, headers=headers)
     assert resp2.status_code == 200
-    assert resp2.json()["status"] == "completed"
+    assert resp2.json()["status"] == "done"
 
     # 3. Create and convert lead
     lead_payload = {
@@ -218,3 +219,90 @@ async def test_doctor_schedule_and_notes(doctor_auth, test_session):
     )
     assert resp2.status_code == 200
     assert resp2.json()["staffNotes"] == "Completed quadrant 1 scaling."
+
+
+@pytest.mark.asyncio
+async def test_appointment_status_normalization(receptionist_auth):
+    """Verifies that legacy status aliases ('scheduled', 'waiting', 'checked_in') are normalised server-side."""
+    client = receptionist_auth["client"]
+    headers = receptionist_auth["headers"]
+
+    create_payload = {
+        "patientFullName": "Legacy Status Test",
+        "patientPhone": "3125550999",
+        "patientEmail": "legacy@example.com",
+        "preferredDate": str(date.today() + timedelta(days=2)),
+        "preferredTime": "11:00 AM",
+        "serviceId": "cleanings-exams",
+        "status": "scheduled",
+    }
+    resp = await client.post("/api/v1/reception/appointments", json=create_payload, headers=headers)
+    assert resp.status_code == 201
+    booking = resp.json()
+    assert booking["status"] == "confirmed"
+
+    # Test updating status with legacy 'waiting' alias
+    status_resp = await client.patch(
+        f"/api/v1/reception/appointments/{booking['id']}/status",
+        json={"status": "waiting"},
+        headers=headers,
+    )
+    assert status_resp.status_code == 200
+    assert status_resp.json()["status"] == "arrived"
+
+
+@pytest.mark.asyncio
+async def test_task_board_active_filtering_and_lifecycle(receptionist_auth):
+    """Verifies that newly created tasks appear in 'active' queue immediately, and status transitions move between tabs."""
+    client = receptionist_auth["client"]
+    headers = receptionist_auth["headers"]
+
+    # 1. Create a task (defaults to pending)
+    create_resp = await client.post(
+        "/api/v1/reception/tasks",
+        json={"title": "Verify appointment confirmation", "priority": "urgent"},
+        headers=headers,
+    )
+    assert create_resp.status_code == 201
+    task = create_resp.json()
+    assert task["status"] == "pending"
+    task_id = task["id"]
+
+    # 2. Default Active view (?status=active) includes this new task immediately
+    active_resp = await client.get("/api/v1/reception/tasks?status=active", headers=headers)
+    assert active_resp.status_code == 200
+    active_ids = [t["id"] for t in active_resp.json()]
+    assert task_id in active_ids
+
+    # 3. Comma-separated list (?status=pending,in_progress) also includes it
+    list_resp = await client.get("/api/v1/reception/tasks?status=pending,in_progress", headers=headers)
+    assert list_resp.status_code == 200
+    assert task_id in [t["id"] for t in list_resp.json()]
+
+    # 4. Transition to in_progress (still active)
+    prog_resp = await client.patch(
+        f"/api/v1/reception/tasks/{task_id}",
+        json={"status": "in_progress"},
+        headers=headers,
+    )
+    assert prog_resp.status_code == 200
+    assert prog_resp.json()["status"] == "in_progress"
+
+    active_resp2 = await client.get("/api/v1/reception/tasks?status=active", headers=headers)
+    assert task_id in [t["id"] for t in active_resp2.json()]
+
+    # 5. Transition to done (removes from active, moves to done tab)
+    done_resp = await client.patch(
+        f"/api/v1/reception/tasks/{task_id}",
+        json={"status": "done"},
+        headers=headers,
+    )
+    assert done_resp.status_code == 200
+    assert done_resp.json()["status"] == "done"
+
+    active_resp3 = await client.get("/api/v1/reception/tasks?status=active", headers=headers)
+    assert task_id not in [t["id"] for t in active_resp3.json()]
+
+    done_tab_resp = await client.get("/api/v1/reception/tasks?status=done", headers=headers)
+    assert task_id in [t["id"] for t in done_tab_resp.json()]
+

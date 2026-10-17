@@ -104,7 +104,9 @@ export default function AdminOverviewPage() {
   };
 
   useEffect(() => {
-    loadOverview();
+    queueMicrotask(() => {
+      loadOverview();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
 

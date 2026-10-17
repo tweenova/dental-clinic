@@ -22,6 +22,7 @@ class PostgresAnnouncementRepository(AnnouncementRepository):
             content=orm.content,
             is_active=orm.is_active,
             display_order=orm.display_order,
+            is_auto_booking_banner=getattr(orm, "is_auto_booking_banner", False),
             created_at=orm.created_at,
             updated_at=orm.updated_at,
         )
@@ -46,6 +47,7 @@ class PostgresAnnouncementRepository(AnnouncementRepository):
             existing.content = announcement.content
             existing.is_active = announcement.is_active
             existing.display_order = announcement.display_order
+            existing.is_auto_booking_banner = announcement.is_auto_booking_banner
             existing.updated_at = announcement.updated_at
             await self._session.flush()
             return self._to_domain(existing)
@@ -55,6 +57,7 @@ class PostgresAnnouncementRepository(AnnouncementRepository):
                 content=announcement.content,
                 is_active=announcement.is_active,
                 display_order=announcement.display_order,
+                is_auto_booking_banner=announcement.is_auto_booking_banner,
                 created_at=announcement.created_at,
                 updated_at=announcement.updated_at,
             )

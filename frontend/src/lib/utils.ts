@@ -12,7 +12,7 @@ export interface OfficeStatus {
 }
 
 /**
- * Calculates current office status in America/Chicago timezone.
+ * Calculates current office status in clinic timezone.
  * Schedule:
  * Mon-Thu: 8:00 AM - 6:00 PM
  * Fri: 8:00 AM - 2:00 PM
@@ -20,15 +20,15 @@ export interface OfficeStatus {
  * Sun: Closed
  */
 /**
- * Calculates whether the dental clinic is currently open based on local Chicago time.
+ * Calculates whether the dental clinic is currently open based on clinic operating hours.
  * It checks the current day of the week and clock time against the office's weekly schedule.
  */
 export function getOfficeStatus(): OfficeStatus {
   try {
     const now = new Date();
-    // Format to Chicago time components
+    const clinicTimeZone = process.env.NEXT_PUBLIC_CLINIC_TIMEZONE || "Asia/Karachi";
     const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Chicago",
+      timeZone: clinicTimeZone,
       weekday: "short",
       hour: "numeric",
       minute: "numeric",

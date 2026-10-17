@@ -57,10 +57,10 @@ export default function TermsPage() {
                 1. Appointment Scheduling and 48-Hour Cancellation Notice
               </h2>
               <p>
-                When an appointment is scheduled, that operatory time is reserved exclusively for you. We kindly require at least <strong>48 business hours advance notice</strong> if you need to reschedule or cancel a routine appointment.
+                When an appointment is scheduled, that operatory time is reserved exclusively for you. We kindly require advance notice if you need to reschedule or cancel a routine appointment.
               </p>
               <p>
-                Late cancellations (under 48 hours) or missed appointments without notice may incur a <strong>$75 scheduling fee</strong>. We recognize medical emergencies and severe illness occur unpredictably, and our front desk evaluates those situations with compassion.
+                Late cancellations without adequate notice may incur a cancellation fee. We recognize medical emergencies occur unpredictably, and our front desk evaluates those situations with compassion.
               </p>
             </section>
 
@@ -69,22 +69,19 @@ export default function TermsPage() {
                 2. Transparent Pricing and Written Estimates
               </h2>
               <p>
-                Before undertaking any procedure outside routine preventive cleanings, we provide you with a written, itemized estimate detailing procedural CDT codes, office fees, and estimated insurance copays.
+                Before undertaking any procedure, we provide you with an itemized written estimate detailing procedural fees according to our clinic fee schedule.
               </p>
               <p>
-                Insurance coverage estimates are derived from verified benefits tables provided by your insurance carrier; however, your carrier makes the final adjudication upon claim processing. You remain financially responsible for any remaining balance not covered by insurance.
+                All fees and expected treatment phases are discussed upfront so that you have complete clarity prior to beginning treatment.
               </p>
             </section>
 
             <section className="space-y-3 border-t border-line/60 pt-6">
               <h2 className="font-display text-xl sm:text-2xl text-ink font-medium">
-                3. Payment Terms and Financing
+                3. Payment Terms
               </h2>
               <p>
-                Patient copayments, coinsurance, and non-covered procedure balances are due at the date of clinical service. We accept major credit cards (Visa, MasterCard, American Express, Discover), debit cards, and cash.
-              </p>
-              <p>
-                For balances exceeding $500, zero-interest 6-month financing is available upon approval through CareCredit. We also extend a 5% bookkeeping adjustment for balances settled in full via cash or check on the date of clinical treatment.
+                Payment for clinical services is due at the date of clinical service. We accept cash, major payment cards, and bank transfers.
               </p>
             </section>
 
@@ -93,10 +90,10 @@ export default function TermsPage() {
                 4. Emergency Care and Medical Disclaimer
               </h2>
               <p>
-                The information provided on this website is for general educational purposes and does not constitute a doctor-patient relationship until an in-person clinical examination is performed by a licensed practitioner at our practice.
+                The information provided on this website is for general educational purposes and does not constitute a doctor-patient relationship until an in-person clinical examination is performed by an attending clinician.
               </p>
               <p>
-                If you are experiencing life-threatening symptoms, uncontrollable facial bleeding, or severe swelling compromising your airway, please call <strong>911</strong> or report to the nearest hospital emergency room immediately.
+                If you are experiencing life-threatening symptoms, uncontrollable facial bleeding, or severe swelling compromising your airway, please contact local emergency medical services or report to the nearest hospital emergency department immediately.
               </p>
             </section>
 

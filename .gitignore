@@ -31,3 +31,28 @@ __pycache__/
 htmlcov/
 backend/uploads/
 uploads/
+backend/storage/
+storage/
+attachments/
+backend/attachments/
+
+# Audit, log, and test artifacts
+FINAL_RELEASE_AUDIT_REPORT.md
+pytest_out.txt
+*.out
+*.out.txt
+# Next.js build output directory (root)
+docs/*
+!docs/*.md
+!docs/screenshots/
+!docs/screenshots/*
+*out.txt
+*.log
+backend/_migcheck.py
+frontend/repro-error.mjs
+frontend/start-dev.bat
+frontend/.tsc-out.txt
+frontend/playwright-report/
+frontend/test-results/
+
+_scratch/

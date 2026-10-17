@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Marlow Dental",
     short_name: "Marlow Dental",
-    description: "Independent dental practice in Lincoln Park, Chicago. Dr. Sarah Marlow, DDS.",
+    description: "Independent dental practice providing comprehensive oral healthcare.",
     start_url: "/",
     display: "standalone",
     background_color: "#FAF7F2",

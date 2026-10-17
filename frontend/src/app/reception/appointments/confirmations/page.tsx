@@ -48,7 +48,9 @@ export default function ReceptionConfirmationsPage() {
   };
 
   useEffect(() => {
-    loadConfirmations();
+    queueMicrotask(() => {
+      loadConfirmations();
+    });
   }, [date, accessToken]);
 
   const handleConfirm = async (id: string) => {

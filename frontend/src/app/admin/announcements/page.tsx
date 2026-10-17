@@ -50,7 +50,9 @@ export default function AdminAnnouncementsPage() {
   };
 
   useEffect(() => {
-    loadAnnouncements();
+    queueMicrotask(() => {
+      loadAnnouncements();
+    });
   }, [accessToken]);
 
   const handleOpenAdd = () => {

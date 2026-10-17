@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Clock, LogOut, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  changePassword,
   getMe,
   login as apiLogin,
   logout as apiLogout,
@@ -38,6 +39,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const SESSION_HINT_KEY = "marlow:session-present";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -49,10 +51,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const lastActivityRef = useRef<number>(0);
   const [warningSecondsLeft, setWarningSecondsLeft] = useState<number | null>(null);
 
+  // Forced password-change state (enforced when requiresPasswordChange is true)
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   const resetActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
     setWarningSecondsLeft(null);
   }, []);
+
+  const requiresPasswordChange = !!user?.requiresPasswordChange;
+
+  const submitPasswordChange = useCallback(async () => {
+    setPasswordError(null);
+    if (!oldPassword) {
+      setPasswordError("Enter your current password.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New password and confirmation do not match.");
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      await changePassword({ oldPassword, newPassword }, accessToken || undefined);
+      // Because backend revokes the previous session upon password change,
+      // re-login immediately with the new password to establish the active session.
+      if (user?.email) {
+        const data = await apiLogin({ email: user.email, password: newPassword });
+        window.localStorage.setItem(SESSION_HINT_KEY, "1");
+        setAccessTokenState(data.accessToken);
+        setMemoryAccessToken(data.accessToken);
+        setUser(data.user);
+        lastActivityRef.current = Date.now();
+        const homePath = homePathForRole(data.user.role);
+        router.push(homePath ?? "/login?reason=no-workspace");
+      } else {
+        const profile = await getMe(accessToken || undefined);
+        setUser(profile);
+      }
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: unknown) {
+      setPasswordError(err instanceof Error ? err.message : "Failed to change password.");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }, [oldPassword, newPassword, confirmPassword, accessToken, user, router]);
 
   const setAccessToken = (token: string | null) => {
     setAccessTokenState(token);
@@ -64,6 +117,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
 
     async function restoreSession() {
+      if (!window.localStorage.getItem(SESSION_HINT_KEY)) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const data = await refreshAuthToken();
         if (!isMounted) return;
@@ -75,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         lastActivityRef.current = Date.now();
       } catch {
         // No active session or cookie expired
+        window.localStorage.removeItem(SESSION_HINT_KEY);
         if (isMounted) {
           setUser(null);
           setAccessToken(null);
@@ -128,6 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(
     async (isTimeout = false) => {
+      window.localStorage.removeItem(SESSION_HINT_KEY);
       await apiLogout();
       setUser(null);
       setAccessToken(null);
@@ -179,6 +239,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const data = await apiLogin({ email, password });
+    window.localStorage.setItem(SESSION_HINT_KEY, "1");
     setAccessToken(data.accessToken);
     setUser(data.user);
     lastActivityRef.current = Date.now();
@@ -248,7 +309,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   Session Inactivity Warning
                 </h2>
                 <p id="inactivity-warning-desc" className="text-xs text-ink-soft leading-relaxed">
-                  For clinic patient privacy and HIPAA compliance, your administrator session will
+                  For clinic patient privacy and session security, your administrator session will
                   automatically lock due to inactivity.
                 </p>
               </div>
@@ -284,6 +345,101 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               >
                 <LogOut className="h-4 w-4 mr-1.5" />
                 Sign Out Now
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Forced Password Change Modal — shown and enforced when requiresPasswordChange is true.
+          Rendered with a higher z-index than navigation so the user must change their password
+          before continuing. */}
+      {requiresPasswordChange && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="force-password-title"
+          aria-describedby="force-password-desc"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-forest-deep/70 backdrop-blur-sm"
+          data-testid="forced-password-change"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-line bg-bone p-6 shadow-2xl space-y-4">
+            <div className="space-y-1">
+              <h2
+                id="force-password-title"
+                className="text-lg font-display font-semibold text-ink"
+              >
+                Change Your Password to Continue
+              </h2>
+              <p id="force-password-desc" className="text-xs text-ink-soft">
+                Your account requires a password change before you can access the workspace.
+                Enter your current password and choose a new one.
+              </p>
+            </div>
+
+            {passwordError && (
+              <div
+                role="alert"
+                className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-3 text-xs text-rose-700 dark:text-rose-300"
+                data-testid="password-change-error"
+              >
+                {passwordError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-ink mb-1" htmlFor="current-password">
+                  Current Password
+                </label>
+                <input
+                  id="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink mb-1" htmlFor="new-password">
+                  New Password
+                </label>
+                <input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink mb-1" htmlFor="confirm-password">
+                  Confirm New Password
+                </label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="primary"
+                onClick={submitPasswordChange}
+                disabled={isChangingPassword}
+                data-testid="submit-password-change"
+              >
+                {isChangingPassword ? "Changing password..." : "Change Password & Continue"}
+              </Button>
+              <Button variant="secondary" onClick={() => logout(false)} disabled={isChangingPassword}>
+                Sign Out Instead
               </Button>
             </div>
           </div>

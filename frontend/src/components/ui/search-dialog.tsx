@@ -125,7 +125,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
             id="search-dialog-title"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            placeholder="Search procedures, cash fees, insurance, or doctor info..."
+            placeholder="Search procedures, fee schedule, doctor info..."
             className="ml-3.5 flex-1 bg-transparent text-[15px] sm:text-[16px] text-gray-900 dark:text-white outline-none placeholder:text-gray-400"
             autoComplete="off"
             spellCheck={false}
@@ -152,11 +152,11 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
               <p className="text-[13px] font-medium text-gray-600 dark:text-gray-400">Quick suggestions</p>
               <div className="mt-3 flex flex-wrap justify-center gap-2">
                 {[
-                  "Cash rates",
+                  "Fee schedule",
                   "Invisalign",
                   "Cleaning & exam",
                   "Root canals",
-                  "Insurance",
+                  "Crowns",
                   "Parking",
                 ].map((term) => (
                   <button
@@ -173,7 +173,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
             <div className="py-12 text-center">
               <p className="font-display text-lg text-gray-900 dark:text-white">No exact matches found</p>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Try searching for general terms like &ldquo;cleaning&rdquo;, &ldquo;crown&rdquo;, or &ldquo;insurance&rdquo;.
+                Try searching for general terms like &ldquo;cleaning&rdquo;, &ldquo;crown&rdquo;, or &ldquo;fillings&rdquo;.
               </p>
             </div>
           ) : (
@@ -226,7 +226,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
               <CornerDownLeft className="h-3 w-3" /> Select
             </span>
           </div>
-          <span>Lincoln Park, Chicago · Marlow Dental</span>
+          <span>Marlow Dental · Patient Search</span>
         </div>
       </div>
     </div>

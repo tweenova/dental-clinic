@@ -44,3 +44,19 @@ class EncounterResponseDto(BaseModel):
     createdAt: datetime
     updatedAt: datetime
 
+
+class UnsignedNoteItemDto(BaseModel):
+    encounterId: UUID
+    bookingId: Optional[UUID] = None
+    patientId: UUID
+    patientName: str
+    date: datetime
+    status: str
+    chiefComplaint: Optional[str] = None
+
+
+class FinishVisitRequestDto(BaseModel):
+    followUpDays: Optional[int] = None
+    followUpWeeks: Optional[int] = None
+    followUpNote: Optional[str] = None
+

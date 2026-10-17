@@ -18,7 +18,9 @@ export function FloatingAction() {
   const cleanPhone = phone.replace(/[^0-9+]/g, "");
 
   useEffect(() => {
-    setStatus(getOfficeStatus());
+    queueMicrotask(() => {
+      setStatus(getOfficeStatus());
+    });
   }, []);
 
   return (

@@ -36,6 +36,18 @@ class EncounterRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_any_by_booking_id(self, booking_id: UUID) -> Optional[ClinicalEncounter]:
+        """Fetch any encounter associated with a booking regardless of status."""
+        pass
+
+    @abstractmethod
+    async def get_unsigned_encounters_by_clinician(
+        self, clinician_id: Optional[UUID], limit: int = 50
+    ) -> List[dict]:
+        """Fetch encounters where the current note is missing or unsigned."""
+        pass
+
+    @abstractmethod
     async def save(self, encounter: ClinicalEncounter) -> ClinicalEncounter:
         """Insert or update a ClinicalEncounter domain record."""
         pass

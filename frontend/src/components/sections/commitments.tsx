@@ -31,7 +31,7 @@ export function Commitments() {
       title: "Written Estimates Before We Begin",
       subtitle: "Clear pricing, zero billing surprises",
       description:
-        "We explain every recommendation on screen using digital X-rays and intraoral photographs. You receive an itemized estimate showing exact procedural codes, cash rates, and estimated insurance benefits before treatment starts.",
+        "We explain every recommendation on screen using digital X-rays and intraoral photographs. You receive an itemized written estimate showing exact procedure descriptions and fee schedule rates before treatment starts.",
     },
     {
       num: "03",

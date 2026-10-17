@@ -19,21 +19,19 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Marlow Dental, Lincoln Park Chicago | Dentistry without the dread",
+  title: "Marlow Dental | Modern, Ethical Dental Care",
   description:
-    "A small, independent dental practice in Lincoln Park, Chicago. We run on time, explain everything before we start, and never upsell you on treatment you do not need.",
+    "An independent private dental practice. We run on time, explain everything before we start, and provide transparent care.",
   metadataBase: new URL("https://marlowdental.com"),
   manifest: "/manifest.webmanifest",
   keywords: [
-    "Lincoln Park dentist",
-    "Chicago dental clinic",
-    "Dr. Sarah Marlow",
-    "honest dentist Chicago",
-    "dental cleanings Lincoln Park",
-    "emergency dentist Chicago 60614",
-    "dental crowns Lincoln Park",
+    "dental clinic",
+    "dental cleanings",
+    "preventive dentistry",
+    "restorative dentistry",
+    "oral healthcare",
   ],
-  authors: [{ name: "Dr. Sarah Marlow, DDS" }],
+  authors: [{ name: "Marlow Dental Clinical Team" }],
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
@@ -44,19 +42,18 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "Marlow Dental | Dentistry without the dread",
+    title: "Marlow Dental | Modern, Ethical Dental Care",
     description:
-      "Independent dental practice in Lincoln Park. Same-week openings. Written estimates before treatment. One dentist, start to finish.",
+      "Independent dental practice providing comprehensive preventive and restorative clinical care.",
     url: "https://marlowdental.com",
     siteName: "Marlow Dental",
-    locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Marlow Dental | Dentistry without the dread",
+    title: "Marlow Dental | Modern, Ethical Dental Care",
     description:
-      "Independent dental practice in Lincoln Park, Chicago. Dr. Sarah Marlow, DDS.",
+      "Independent private dental practice delivering unhurried, ethical clinical care.",
   },
 };
 
@@ -65,46 +62,8 @@ const jsonLd = {
   "@type": "DentalClinic",
   name: "Marlow Dental",
   description:
-    "An independent private dental practice in Lincoln Park, Chicago specializing in unhurried preventive, restorative, and emergency care.",
-  url: "https://marlowdental.com",
-  telephone: "+1-312-555-0147",
-  email: "hello@marlowdental.com",
-  address: {
-    "@type": "PostalAddress",
-    streetAddress: "214 Alder Street, Suite 3",
-    addressLocality: "Chicago",
-    addressRegion: "IL",
-    postalCode: "60614",
-    addressCountry: "US",
-  },
-  geo: {
-    "@type": "GeoCoordinates",
-    latitude: 41.918,
-    longitude: -87.649,
-  },
-  openingHoursSpecification: [
-    {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday"],
-      opens: "08:00",
-      closes: "18:00",
-    },
-    {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: "Friday",
-      opens: "08:00",
-      closes: "14:00",
-    },
-    {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: "Saturday",
-      opens: "09:00",
-      closes: "13:00",
-    },
-  ],
-  priceRange: "$$",
-  currenciesAccepted: "USD",
-  paymentAccepted: "Cash, Credit Card, CareCredit, Dental PPO Insurance",
+    "An independent private dental practice specializing in preventive and restorative oral care.",
+  paymentAccepted: "Cash, Credit Card, Bank Transfer",
 };
 
 /**

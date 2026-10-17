@@ -4,11 +4,22 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock
 
-from app.api.deps import get_appointment_repository, get_booking_repository, get_patient_repository
+from uuid import uuid4
+
+from app.api.deps import (
+    get_appointment_repository,
+    get_availability_service,
+    get_booking_repository,
+    get_patient_repository,
+    get_booking_settings_repository,
+)
+from app.application.services.availability_service import AvailabilityService
 from app.domain.models.appointment import Appointment
+from app.domain.models.booking_settings import BookingSettings, WorkingHours
 from app.domain.repositories.appointment_repo import AppointmentRepository
 from app.domain.repositories.booking_repo import BookingRepository
 from app.domain.repositories.patient_repo import PatientRepository
+from app.domain.repositories.booking_settings_repo import BookingSettingsRepository
 from app.main import app
 
 
@@ -22,9 +33,26 @@ def mock_appointment_repo():
     mock_patient_repo.find_duplicates.return_value = []
     mock_patient_repo.save.side_effect = lambda p: p
 
+    mock_settings_repo = AsyncMock(spec=BookingSettingsRepository)
+    mock_settings_repo.get_settings.return_value = BookingSettings(
+        id=uuid4(),
+        booking_mode="open",
+        advance_booking_days=60,
+    )
+    mock_settings_repo.list_working_hours.return_value = [
+        WorkingHours(id=uuid4(), day_of_week=i, open_time="08:00", close_time="18:00", is_closed=False)
+        for i in range(7)
+    ]
+    mock_settings_repo.list_closures.return_value = []
+
+    mock_avail_service = AsyncMock(spec=AvailabilityService)
+    mock_avail_service.is_slot_available.return_value = True
+
     app.dependency_overrides[get_appointment_repository] = lambda: mock_repo
     app.dependency_overrides[get_booking_repository] = lambda: mock_booking_repo
     app.dependency_overrides[get_patient_repository] = lambda: mock_patient_repo
+    app.dependency_overrides[get_booking_settings_repository] = lambda: mock_settings_repo
+    app.dependency_overrides[get_availability_service] = lambda: mock_avail_service
     yield mock_repo
     app.dependency_overrides.clear()
 

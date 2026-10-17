@@ -8,6 +8,24 @@ import jwt
 from app.core.config import settings
 
 
+def validate_password_strength(password: str) -> None:
+    """
+    Enforces minimum password security policy:
+    - At least 8 characters
+    - At least one uppercase character
+    - At least one lowercase character
+    - At least one number
+    """
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long.")
+    if not any(c.isupper() for c in password):
+        raise ValueError("Password must contain at least one uppercase letter.")
+    if not any(c.islower() for c in password):
+        raise ValueError("Password must contain at least one lowercase letter.")
+    if not any(c.isdigit() for c in password):
+        raise ValueError("Password must contain at least one digit.")
+
+
 def hash_password(password: str) -> str:
     """Hashes a plaintext password using bcrypt with random salt."""
     salt = bcrypt.gensalt()

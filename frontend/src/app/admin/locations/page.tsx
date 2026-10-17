@@ -41,13 +41,12 @@ export default function AdminLocationsPage() {
     name: "",
     addressLine1: "",
     addressLine2: "",
-    city: "Chicago",
-    state: "Illinois",
-    postalCode: "60614",
-    country: "US",
-    phone: "(312) 555-0147",
-    email: "care@marlowdental.com",
-    hoursInfo: "Monday – Thursday: 8:00 AM – 6:00 PM\nFriday: 8:00 AM – 2:00 PM\nSaturday – Sunday: Closed",
+    city: "",
+    state: "",
+    postalCode: "",
+    country: "",
+    email: "",
+    hoursInfo: "",
     isPrimary: false,
     displayOrder: 0,
   });
@@ -68,7 +67,9 @@ export default function AdminLocationsPage() {
 
   useEffect(() => {
     if (accessToken) {
-      loadLocations();
+      queueMicrotask(() => {
+        loadLocations();
+      });
     }
   }, [accessToken]);
 
@@ -78,13 +79,12 @@ export default function AdminLocationsPage() {
       name: "",
       addressLine1: "",
       addressLine2: "",
-      city: "Chicago",
-      state: "Illinois",
-      postalCode: "60614",
-      country: "US",
-      phone: "(312) 555-0147",
-      email: "care@marlowdental.com",
-      hoursInfo: "Monday – Thursday: 8:00 AM – 6:00 PM\nFriday: 8:00 AM – 2:00 PM\nSaturday – Sunday: Closed",
+      city: "",
+      state: "",
+      postalCode: "",
+      country: "",
+      email: "",
+      hoursInfo: "",
       isPrimary: locations.length === 0,
       displayOrder: locations.length,
     });
@@ -417,7 +417,7 @@ export default function AdminLocationsPage() {
                     label="City *"
                     value={form.city}
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    placeholder="e.g. Chicago"
+                    placeholder="e.g. City Name"
                     required
                   />
                 </div>
@@ -427,7 +427,7 @@ export default function AdminLocationsPage() {
                     label="State / Province *"
                     value={form.state}
                     onChange={(e) => setForm({ ...form, state: e.target.value })}
-                    placeholder="e.g. Illinois"
+                    placeholder="e.g. State / Province"
                     required
                   />
                 </div>
@@ -461,9 +461,17 @@ export default function AdminLocationsPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-ink dark:text-gray-300 mb-1.5">
-                    Operating Hours Summary
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-medium text-ink dark:text-gray-300">
+                      Operating Hours Summary (Legacy Fallback)
+                    </label>
+                    <a
+                      href="/admin/booking"
+                      className="text-[11px] text-primary hover:underline font-medium"
+                    >
+                      Edit single-source hours in Booking Settings →
+                    </a>
+                  </div>
                   <textarea
                     rows={3}
                     value={form.hoursInfo}
@@ -471,6 +479,9 @@ export default function AdminLocationsPage() {
                     placeholder="Mon – Thu: 8:00 AM – 6:00 PM&#10;Fri: 8:00 AM – 2:00 PM&#10;Sat–Sun: Closed"
                     className="w-full rounded-2xl border border-line dark:border-gray-700 bg-cream/70 dark:bg-gray-800/80 px-4 py-3 text-xs text-ink dark:text-white placeholder:text-ink-soft/40 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
                   />
+                  <p className="text-[11px] text-ink-soft/60 dark:text-gray-400 mt-1">
+                    Standard clinic hours and closures are managed in <a href="/admin/booking" className="underline text-primary">Booking Settings</a> as the single source of truth. This field is preserved only as a fallback.
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-3 pt-2">

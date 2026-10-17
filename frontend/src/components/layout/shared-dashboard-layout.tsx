@@ -94,7 +94,9 @@ export function SharedDashboardLayout({
 
   // Close mobile drawer on route transition
   useEffect(() => {
-    setMobileOpen(false);
+    queueMicrotask(() => {
+      setMobileOpen(false);
+    });
   }, [pathname]);
 
   if (isLoading) {

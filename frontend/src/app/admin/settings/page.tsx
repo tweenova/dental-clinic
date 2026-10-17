@@ -66,9 +66,11 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     if (user) {
-      setInactivityEnabled(user.inactivityEnabled !== false);
-      setTimeoutMinutes(user.inactivityTimeoutMinutes ?? 15);
-      setWarningSeconds(user.inactivityWarningSeconds ?? 60);
+      queueMicrotask(() => {
+        setInactivityEnabled(user.inactivityEnabled !== false);
+        setTimeoutMinutes(user.inactivityTimeoutMinutes ?? 15);
+        setWarningSeconds(user.inactivityWarningSeconds ?? 60);
+      });
     }
   }, [user]);
 

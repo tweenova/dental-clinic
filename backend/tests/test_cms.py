@@ -19,10 +19,10 @@ async def test_cms_sections_and_faqs(client_with_db: AsyncClient, admin_auth):
     # 3. Admin updates general CMS section
     update_payload = {
         "practiceName": "Marlow Dental Complex",
-        "tagline": "State of the art dental care in Lincoln Park, Chicago.",
-        "phone": "(312) 555-0147",
+        "tagline": "State of the art dental care in our modern clinical complex.",
+        "phone": "+92 300 1234567",
         "email": "care@marlowdentalcomplex.com",
-        "address": "214 Alder Street, Suite 3, Chicago, IL 60614",
+        "address": "123 Healthcare Boulevard, Medical District",
     }
     admin_put = await client_with_db.put("/api/v1/admin/cms/general", json=update_payload, headers=headers)
     assert admin_put.status_code == 200

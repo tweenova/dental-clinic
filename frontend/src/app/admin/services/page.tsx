@@ -17,9 +17,12 @@ import { useAuth } from "@/components/providers/auth-provider";
 import {
   adminCreateService,
   adminGetServices,
+  adminReorderServices,
   adminToggleServiceStatus,
   adminUpdateService,
+  getTeamMembers,
   ServiceItem,
+  TeamMember,
 } from "@/lib/api";
 
 const CATEGORIES = [
@@ -32,6 +35,7 @@ const CATEGORIES = [
 export default function AdminServicesPage() {
   const { accessToken } = useAuth();
   const [services, setServices] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -51,9 +55,13 @@ export default function AdminServicesPage() {
     code: "",
     insuranceNote: "",
     recommendedInterval: "",
+    recallIntervalDays: 180 as number | undefined,
     displayOrder: 0,
     isHighlighted: false,
     isPublic: true,
+    bookableOnline: true,
+    bufferMinutes: 0,
+    providerIds: [] as string[],
   });
 
   const loadServices = async () => {
@@ -70,7 +78,12 @@ export default function AdminServicesPage() {
   };
 
   useEffect(() => {
-    loadServices();
+    queueMicrotask(() => {
+      loadServices();
+      getTeamMembers()
+        .then((members) => setTeamMembers(members.filter((m) => m.isActive)))
+        .catch(() => {});
+    });
   }, [accessToken]);
 
   const openAddModal = () => {
@@ -81,14 +94,18 @@ export default function AdminServicesPage() {
       title: "",
       shortDesc: "",
       fullDesc: "",
-      cashPrice: "from $",
-      duration: "45 to 60 min",
-      code: "CDT D0150",
-      insuranceNote: "Usually covered by PPO dental plans.",
+      cashPrice: "",
+      duration: "45 min",
+      code: "SRV-01",
+      insuranceNote: "",
       recommendedInterval: "Every 6 months",
+      recallIntervalDays: 180,
       displayOrder: services.length,
       isHighlighted: false,
       isPublic: true,
+      bookableOnline: true,
+      bufferMinutes: 0,
+      providerIds: [],
     });
     setShowModal(true);
   };
@@ -106,9 +123,13 @@ export default function AdminServicesPage() {
       code: service.code || "",
       insuranceNote: service.insuranceNote || "",
       recommendedInterval: service.recommendedInterval || "",
+      recallIntervalDays: service.recallIntervalDays !== undefined && service.recallIntervalDays !== null ? Number(service.recallIntervalDays) : undefined,
       displayOrder: service.displayOrder,
       isHighlighted: service.isHighlighted,
       isPublic: service.isPublic,
+      bookableOnline: service.bookableOnline !== false,
+      bufferMinutes: service.bufferMinutes || 0,
+      providerIds: service.providerIds || [],
     });
     setShowModal(true);
   };
@@ -129,9 +150,13 @@ export default function AdminServicesPage() {
       code: form.code.trim() || null,
       insuranceNote: form.insuranceNote.trim() || null,
       recommendedInterval: form.recommendedInterval.trim() || null,
+      recallIntervalDays: form.recallIntervalDays ? Number(form.recallIntervalDays) : null,
       displayOrder: Number(form.displayOrder) || 0,
       isHighlighted: Boolean(form.isHighlighted),
       isPublic: Boolean(form.isPublic),
+      bookableOnline: Boolean(form.bookableOnline),
+      bufferMinutes: Number(form.bufferMinutes) || 0,
+      providerIds: form.providerIds,
       isActive: true,
     };
 
@@ -158,6 +183,25 @@ export default function AdminServicesPage() {
       loadServices();
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to toggle status.");
+    }
+  };
+
+  // Simple reorder control: swaps the service with its neighbour and persists
+  // the full ordered ID list to PATCH /admin/services/reorder.
+  const handleMove = async (index: number, direction: -1 | 1) => {
+    if (!accessToken) return;
+    const target = index + direction;
+    if (target < 0 || target >= services.length) return;
+    const ordered = [...services];
+    const [moved] = ordered.splice(index, 1);
+    ordered.splice(target, 0, moved);
+    try {
+      await adminReorderServices(ordered.map((s) => s.id), accessToken);
+      setServices(ordered);
+      setSuccessMessage("Service display order saved.");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to reorder services.");
     }
   };
 
@@ -239,6 +283,30 @@ export default function AdminServicesPage() {
                       Featured
                     </span>
                   )}
+                  {svc.bookableOnline !== false ? (
+                    <span className="rounded-full bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300">
+                      Online Bookable
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-gray-200 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-semibold text-gray-700 dark:text-gray-300">
+                      Staff Scheduling Only
+                    </span>
+                  )}
+                  {svc.bufferMinutes > 0 && (
+                    <span className="rounded-full bg-blue-100 dark:bg-blue-950 px-2 py-0.5 text-[10px] font-semibold text-blue-800 dark:text-blue-300">
+                      +{svc.bufferMinutes}m buffer
+                    </span>
+                  )}
+                  {svc.recallIntervalDays && (
+                    <span className="rounded-full bg-sand px-2 py-0.5 text-[10px] font-mono font-medium text-clay">
+                      {svc.recallIntervalDays}d recall
+                    </span>
+                  )}
+                  {svc.providerIds && svc.providerIds.length > 0 && (
+                    <span className="rounded-full bg-purple-100 dark:bg-purple-950 px-2 py-0.5 text-[10px] font-semibold text-purple-800 dark:text-purple-300">
+                      {svc.providerIds.length} Clinician{svc.providerIds.length > 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
 
                 <h3 className="font-display text-base text-ink font-semibold">
@@ -264,6 +332,28 @@ export default function AdminServicesPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                {/* Reorder controls: move the service up or down in the public list */}
+                <div className="flex flex-col gap-0.5 mr-1" role="group" aria-label="Reorder service">
+                  <button
+                    type="button"
+                    onClick={() => handleMove(services.indexOf(svc), -1)}
+                    disabled={services.indexOf(svc) === 0}
+                    aria-label={`Move ${svc.name} up`}
+                    className="h-5 w-6 rounded border border-line text-ink-soft hover:text-ink hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed text-[10px] leading-none"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMove(services.indexOf(svc), 1)}
+                    disabled={services.indexOf(svc) === services.length - 1}
+                    aria-label={`Move ${svc.name} down`}
+                    className="h-5 w-6 rounded border border-line text-ink-soft hover:text-ink hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed text-[10px] leading-none"
+                  >
+                    ▼
+                  </button>
+                </div>
+
                 <Button onClick={() => openEditModal(svc)} variant="secondary" size="sm">
                   <Edit className="h-3.5 w-3.5 mr-1" />
                   <span>Edit</span>
@@ -344,7 +434,7 @@ export default function AdminServicesPage() {
                     label="Cash Price"
                     value={form.cashPrice}
                     onChange={(e) => setForm({ ...form, cashPrice: e.target.value })}
-                    placeholder="from $140"
+                    placeholder="from Rs 1,500"
                     required
                   />
                   <TextField
@@ -393,18 +483,19 @@ export default function AdminServicesPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <TextField
-                    id="service-ins"
-                    label="Insurance Copay Note"
-                    value={form.insuranceNote}
-                    onChange={(e) => setForm({ ...form, insuranceNote: e.target.value })}
-                    placeholder="Typically 100% covered by PPO..."
-                  />
-                  <TextField
                     id="service-rec"
-                    label="Recommended Interval"
+                    label="Recommended Interval Text"
                     value={form.recommendedInterval}
                     onChange={(e) => setForm({ ...form, recommendedInterval: e.target.value })}
                     placeholder="Every 6 months"
+                  />
+                  <TextField
+                    id="service-recall-days"
+                    label="Recall Interval (Days)"
+                    type="number"
+                    value={form.recallIntervalDays !== undefined ? String(form.recallIntervalDays) : ""}
+                    onChange={(e) => setForm({ ...form, recallIntervalDays: e.target.value ? Number(e.target.value) : undefined })}
+                    placeholder="e.g. 180 (or 90 for perio)"
                   />
                 </div>
 
@@ -428,6 +519,81 @@ export default function AdminServicesPage() {
                     />
                     <span>Show on Public Website</span>
                   </label>
+                </div>
+
+                {/* Online Booking & Clinician Assignment */}
+                <div className="rounded-xl border border-line bg-cream/40 p-4 space-y-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
+                    Online Booking &amp; Clinician Assignment
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                    <label className="flex items-center gap-2 text-xs font-medium text-ink cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.bookableOnline}
+                        onChange={(e) => setForm({ ...form, bookableOnline: e.target.checked })}
+                        className="rounded border-line text-forest focus:ring-forest"
+                      />
+                      <span>Allow Online Patient Booking</span>
+                    </label>
+
+                    <div>
+                      <label htmlFor="service-buffer" className="block text-[11px] font-medium text-ink mb-1">
+                        Post-Procedure Buffer Time (Minutes)
+                      </label>
+                      <input
+                        id="service-buffer"
+                        type="number"
+                        min={0}
+                        max={120}
+                        step={5}
+                        value={form.bufferMinutes}
+                        onChange={(e) => setForm({ ...form, bufferMinutes: parseInt(e.target.value, 10) || 0 })}
+                        className="w-full rounded-[var(--radius-card)] border border-line bg-bone px-3 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-forest"
+                      />
+                      <p className="text-[10px] text-ink-soft mt-0.5">Buffer for room sterilization &amp; chair prep.</p>
+                    </div>
+                  </div>
+
+                  {/* Clinician Multi-Select */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-ink mb-1">
+                      Assigned Clinicians (Multi-Select)
+                    </label>
+                    <p className="text-[11px] text-ink-soft mb-2">
+                      Leave empty to allow all active clinic providers to perform this service.
+                    </p>
+                    {teamMembers.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto border border-line rounded-lg p-2 bg-bone">
+                        {teamMembers.map((tm) => {
+                          const isChecked = form.providerIds.includes(tm.id);
+                          return (
+                            <label
+                              key={tm.id}
+                              className="flex items-center gap-2 text-xs text-ink p-1.5 rounded hover:bg-cream cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setForm({ ...form, providerIds: [...form.providerIds, tm.id] });
+                                  } else {
+                                    setForm({ ...form, providerIds: form.providerIds.filter((id) => id !== tm.id) });
+                                  }
+                                }}
+                                className="rounded border-line text-forest focus:ring-forest"
+                              />
+                              <span className="truncate">{tm.displayName} ({tm.professionalTitle || tm.role})</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-ink-soft italic">No active clinicians found.</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-line/60 flex justify-end gap-2">

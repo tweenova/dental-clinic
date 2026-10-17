@@ -29,10 +29,13 @@ class PostgresServiceRepository(ServiceRepository):
             code=orm.code,
             insurance_note=orm.insurance_note,
             recommended_interval=orm.recommended_interval,
+            recall_interval_days=orm.recall_interval_days,
             display_order=orm.display_order,
             is_highlighted=orm.is_highlighted,
             is_active=orm.is_active,
             is_public=orm.is_public,
+            bookable_online=orm.bookable_online,
+            buffer_minutes=orm.buffer_minutes,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
         )
@@ -51,10 +54,13 @@ class PostgresServiceRepository(ServiceRepository):
             code=domain.code,
             insurance_note=domain.insurance_note,
             recommended_interval=domain.recommended_interval,
+            recall_interval_days=domain.recall_interval_days,
             display_order=domain.display_order,
             is_highlighted=domain.is_highlighted,
             is_active=domain.is_active,
             is_public=domain.is_public,
+            bookable_online=domain.bookable_online,
+            buffer_minutes=domain.buffer_minutes,
             created_at=domain.created_at,
             updated_at=domain.updated_at,
         )
@@ -92,10 +98,13 @@ class PostgresServiceRepository(ServiceRepository):
             existing.code = service.code
             existing.insurance_note = service.insurance_note
             existing.recommended_interval = service.recommended_interval
+            existing.recall_interval_days = service.recall_interval_days
             existing.display_order = service.display_order
             existing.is_highlighted = service.is_highlighted
             existing.is_active = service.is_active
             existing.is_public = service.is_public
+            existing.bookable_online = service.bookable_online
+            existing.buffer_minutes = service.buffer_minutes
             existing.updated_at = service.updated_at
             await self._session.flush()
             return self._to_domain(existing)

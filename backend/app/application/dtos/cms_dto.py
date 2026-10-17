@@ -43,21 +43,21 @@ class FaqResponse(BaseModel):
 class GeneralSectionDTO(BaseModel):
     """CMS General section configuration."""
     practiceName: str = "Marlow Dental"
-    tagline: str = "Comprehensive, unhurried dental care in Lincoln Park, Chicago."
+    tagline: str = "Comprehensive, unhurried dental care."
     logoUrl: Optional[str] = None
     faviconUrl: Optional[str] = None
-    phone: str = "(312) 555-0147"
+    phone: str = "+92 300 1234567"
     email: str = "care@marlowdental.com"
-    address: str = "214 Alder Street, Suite 3, Chicago, IL 60614"
-    emergencyPhone: Optional[str] = "(312) 555-0199"
+    address: str = "123 Healthcare Boulevard, Medical District"
+    emergencyPhone: Optional[str] = "+92 300 7654321"
 
     model_config = ConfigDict(extra="ignore")
 
 
 class HomepageSectionDTO(BaseModel):
     """CMS Homepage section configuration."""
-    heroEyebrow: str = "Independent Dental Practice · Lincoln Park"
-    heroHeading: str = "Modern, unhurried dental care for Chicago."
+    heroEyebrow: str = "Independent Dental Practice · Modern Clinical Care"
+    heroHeading: str = "Modern, unhurried dental care."
     heroDescription: str = "Comprehensive exams, gentle restorations, and transparent fee schedules from a dedicated clinical team."
     heroCtaText: str = "Request an appointment"
     heroCtaLink: str = "/book"
@@ -77,18 +77,18 @@ class AboutSectionDTO(BaseModel):
         "When you sit in our chair, we will never recommend aggressive treatments or unneeded cosmetic procedures. If a tooth can be maintained conservatively with diligent care, that is exactly what we advise.",
     ])
     imageUrl: Optional[str] = None
-    licensureText: str = "Active Illinois Dental Licensure. BLS/CPR Certified. Chicago Dental Society Members."
+    licensureText: str = "Registered & Verified Clinical Licensure. BLS/CPR Certified."
 
     model_config = ConfigDict(extra="ignore")
 
 
 class ContactSectionDTO(BaseModel):
     """CMS Contact section configuration."""
-    phone: str = "(312) 555-0147"
+    phone: str = "+92 300 1234567"
     email: str = "care@marlowdental.com"
-    addressLine1: str = "214 Alder Street, Suite 3"
-    addressLine2: str = "Lincoln Park, Chicago, IL 60614"
-    transitNote: str = "Two blocks west of Fullerton Red/Brown/Purple Line station. Valet & street parking available."
+    addressLine1: str = "123 Healthcare Boulevard"
+    addressLine2: str = "Suite 300, Medical District"
+    transitNote: str = "Convenient transit access and dedicated patient parking available on site."
     hoursSummary: str = "Monday – Thursday: 8:00 AM – 6:00 PM\nFriday: 8:00 AM – 2:00 PM (Emergency triage only)\nSaturday – Sunday: Closed"
     emergencyNote: str = "Reserved triage blocks available daily. Call before 11:00 AM for same-day evaluation."
 
@@ -97,8 +97,8 @@ class ContactSectionDTO(BaseModel):
 
 class FooterSectionDTO(BaseModel):
     """CMS Footer section configuration."""
-    tagline: str = "Independent, ethical dental care in Lincoln Park, Chicago."
-    copyrightNotice: str = "Marlow Dental Practice LLC. All rights reserved."
+    tagline: str = "Independent, ethical dental care."
+    copyrightNotice: str = "Marlow Dental Practice. All rights reserved."
     cancellationPolicy: str = "We request 48 hours notice for appointment rescheduling."
 
     model_config = ConfigDict(extra="ignore")
@@ -106,8 +106,8 @@ class FooterSectionDTO(BaseModel):
 
 class SeoSectionDTO(BaseModel):
     """CMS SEO configuration."""
-    siteTitle: str = "Marlow Dental — Unhurried Dentistry in Lincoln Park, Chicago"
-    metaDescription: str = "Independent dental practice in Lincoln Park, Chicago offering gentle exams, ceramic restorations, and transparent cash pricing."
+    siteTitle: str = "Marlow Dental — Unhurried Dentistry"
+    metaDescription: str = "Independent dental practice offering gentle exams, ceramic restorations, and transparent pricing."
     ogImageUrl: Optional[str] = None
 
     model_config = ConfigDict(extra="ignore")

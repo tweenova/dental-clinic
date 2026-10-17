@@ -21,8 +21,18 @@ import {
   updateReceptionBookingConfirmation,
   updateReceptionBookingStatus,
 } from "@/lib/api";
+import { WaitlistOfferModal } from "@/components/reception/waitlist-offer-modal";
+import { RecordPaymentModal } from "@/components/reception/record-payment-modal";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useDirectory } from "@/lib/directory";
+import {
+  isExpected,
+  isWaiting,
+  isInProgress,
+  isCompleted,
+  isCancelled,
+  APPOINTMENT_STATUS,
+} from "@/lib/statuses";
 
 export default function ReceptionAppointmentsPage() {
   const { accessToken } = useAuth();
@@ -32,6 +42,8 @@ export default function ReceptionAppointmentsPage() {
   const [bookings, setBookings] = useState<ReceptionBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [waitlistModalBookingId, setWaitlistModalBookingId] = useState<string | null>(null);
+  const [selectedPaymentBooking, setSelectedPaymentBooking] = useState<{ id: string; patientName: string } | null>(null);
 
   const loadBookings = async () => {
     setIsLoading(true);
@@ -61,13 +73,26 @@ export default function ReceptionAppointmentsPage() {
   };
 
   useEffect(() => {
-    loadBookings();
+    queueMicrotask(() => {
+      loadBookings();
+    });
   }, [activeTab, accessToken]);
 
   const handleStatusChange = async (bookingId: string, status: string) => {
     try {
-      await updateReceptionBookingStatus(bookingId, status, undefined, accessToken);
+      let cancellationReason: string | undefined;
+      if (status === "cancelled") {
+        const reason = window.prompt("Please provide a reason for cancellation:");
+        if (!reason || !reason.trim()) {
+          return;
+        }
+        cancellationReason = reason.trim();
+      }
+      await updateReceptionBookingStatus(bookingId, status, undefined, accessToken, cancellationReason);
       await loadBookings();
+      if (status === "cancelled") {
+        setWaitlistModalBookingId(bookingId);
+      }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to update appointment.");
     }
@@ -211,13 +236,13 @@ export default function ReceptionAppointmentsPage() {
                         className={`
                           px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase
                           ${
-                            b.status === "scheduled"
+                            isExpected(b.status)
                               ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                              : b.status === "arrived"
+                              : isWaiting(b.status)
                               ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                              : b.status === "in_progress"
+                              : isInProgress(b.status)
                               ? "bg-clay/10 text-clay"
-                              : b.status === "completed"
+                              : isCompleted(b.status)
                               ? "bg-primary/10 text-primary font-bold"
                               : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
                           }
@@ -251,30 +276,50 @@ export default function ReceptionAppointmentsPage() {
                           </button>
                         )}
 
-                        {(b.status === "confirmed" || b.status === "scheduled") && (
+                        {isExpected(b.status) && (
                           <button
-                            onClick={() => handleStatusChange(b.id, "arrived")}
+                            onClick={() => handleStatusChange(b.id, APPOINTMENT_STATUS.ARRIVED)}
                             className="px-3 py-1 rounded-full bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 transition-colors cursor-pointer"
                           >
                             Check In
                           </button>
                         )}
 
-                        {(b.status === "arrived" || b.status === "checked_in" || b.status === "waiting") && (
+                        {isWaiting(b.status) && (
                           <button
-                            onClick={() => handleStatusChange(b.id, "in_progress")}
+                            onClick={() => handleStatusChange(b.id, APPOINTMENT_STATUS.IN_PROGRESS)}
                             className="px-3 py-1 rounded-full bg-clay text-white text-[11px] font-medium hover:bg-clay/90 transition-colors cursor-pointer"
                           >
                             With Doctor
                           </button>
                         )}
 
-                        {b.status === "in_progress" && (
+                        {isInProgress(b.status) && (
                           <button
-                            onClick={() => handleStatusChange(b.id, "completed")}
+                            onClick={() => handleStatusChange(b.id, APPOINTMENT_STATUS.COMPLETED)}
                             className="px-3 py-1 rounded-full bg-primary text-white text-[11px] font-medium hover:bg-primary/90 transition-colors cursor-pointer"
                           >
                             Complete
+                          </button>
+                        )}
+
+                        {!isCancelled(b.status) && (
+                          <button
+                            onClick={() => {
+                              setSelectedPaymentBooking({ id: b.id, patientName: b.patientName });
+                            }}
+                            className="px-3 py-1 rounded-full border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                          >
+                            Payment
+                          </button>
+                        )}
+
+                        {!isCancelled(b.status) && !isCompleted(b.status) && b.status !== APPOINTMENT_STATUS.WAITLIST && (
+                          <button
+                            onClick={() => handleStatusChange(b.id, APPOINTMENT_STATUS.WAITLIST)}
+                            className="px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-[11px] font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                          >
+                            Move to waitlist
                           </button>
                         )}
                       </div>
@@ -286,6 +331,19 @@ export default function ReceptionAppointmentsPage() {
           </div>
         )}
       </div>
+
+      <WaitlistOfferModal
+        bookingId={waitlistModalBookingId}
+        isOpen={Boolean(waitlistModalBookingId)}
+        onClose={() => setWaitlistModalBookingId(null)}
+      />
+
+      <RecordPaymentModal
+        bookingId={selectedPaymentBooking?.id ?? null}
+        patientName={selectedPaymentBooking?.patientName}
+        isOpen={Boolean(selectedPaymentBooking)}
+        onClose={() => setSelectedPaymentBooking(null)}
+      />
     </div>
   );
 }

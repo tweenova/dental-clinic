@@ -82,7 +82,7 @@ export function Services() {
           />
           <div className="max-w-md space-y-2">
             <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-              Every procedure is itemized before we begin. No unexpected billing surprises, no pressure for unnecessary cosmetic upselling, and upfront insurance verification.
+              Every procedure is itemized before we begin. No unexpected billing surprises, no pressure for unnecessary cosmetic upselling, and clear fee schedule transparency.
             </p>
             <div className="flex items-center gap-2 text-xs text-primary dark:text-emerald-400 font-medium">
               <ShieldCheck className="h-4 w-4 shrink-0" />
@@ -218,12 +218,6 @@ export function Services() {
                           <span>{service.cashPrice}</span>
                         </div>
                       </div>
-
-                      {service.insuranceNote && (
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 italic line-clamp-1">
-                          {service.insuranceNote}
-                        </p>
-                      )}
                     </div>
 
                     {/* Booking Action */}

@@ -45,7 +45,9 @@ export default function ReceptionRequestsPage() {
   };
 
   useEffect(() => {
-    loadRequests();
+    queueMicrotask(() => {
+      loadRequests();
+    });
   }, [statusFilter, accessToken]);
 
   const handleTriage = async (id: string, action: "confirm" | "schedule" | "decline") => {

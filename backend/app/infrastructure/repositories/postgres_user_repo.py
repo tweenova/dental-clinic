@@ -38,6 +38,7 @@ class PostgresUserRepository(UserRepository):
             is_active=orm.is_active,
             clinic_id=orm.clinic_id if hasattr(orm, "clinic_id") else None,
             team_member_id=orm.team_member_id if hasattr(orm, "team_member_id") else None,
+            requires_password_change=getattr(orm, "requires_password_change", False),
             inactivity_enabled=orm.inactivity_enabled,
             inactivity_timeout_minutes=orm.inactivity_timeout_minutes,
             inactivity_warning_seconds=orm.inactivity_warning_seconds,
@@ -56,6 +57,7 @@ class PostgresUserRepository(UserRepository):
             clinic_id=domain.clinic_id,
             team_member_id=domain.team_member_id,
             is_active=domain.is_active,
+            requires_password_change=domain.requires_password_change,
             inactivity_enabled=domain.inactivity_enabled,
             inactivity_timeout_minutes=domain.inactivity_timeout_minutes,
             inactivity_warning_seconds=domain.inactivity_warning_seconds,
@@ -75,6 +77,17 @@ class PostgresUserRepository(UserRepository):
         orm = result.scalar_one_or_none()
         return self._to_domain(orm) if orm else None
 
+    async def list_users(
+        self, role: Optional[str] = None, is_active: Optional[bool] = None
+    ) -> list[User]:
+        stmt = select(UserORM).order_by(UserORM.created_at.desc())
+        if role:
+            stmt = stmt.where(UserORM.role == role)
+        if is_active is not None:
+            stmt = stmt.where(UserORM.is_active == is_active)
+        result = await self._session.execute(stmt)
+        return [self._to_domain(u) for u in result.scalars().all()]
+
     async def save(self, user: User) -> User:
         existing = await self._session.get(UserORM, user.id)
         if existing:
@@ -85,6 +98,7 @@ class PostgresUserRepository(UserRepository):
             existing.clinic_id = user.clinic_id
             existing.team_member_id = user.team_member_id
             existing.is_active = user.is_active
+            existing.requires_password_change = user.requires_password_change
             existing.inactivity_enabled = user.inactivity_enabled
             existing.inactivity_timeout_minutes = user.inactivity_timeout_minutes
             existing.inactivity_warning_seconds = user.inactivity_warning_seconds

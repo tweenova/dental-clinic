@@ -20,6 +20,7 @@ import {
   adminCreateTeamMember,
   adminGetLocations,
   adminGetTeam,
+  adminReorderTeam,
   adminToggleTeamMemberStatus,
   adminUpdateTeamMember,
   adminUploadMedia,
@@ -77,7 +78,7 @@ export default function AdminTeamPage() {
     education: "",
     credentials: "",
     licenseNumber: "",
-    licenseState: "Illinois",
+    licenseState: "",
     photoUrl: "",
     locationId: null,
     displayOrder: 0,
@@ -104,7 +105,9 @@ export default function AdminTeamPage() {
   };
 
   useEffect(() => {
-    loadData();
+    queueMicrotask(() => {
+      loadData();
+    });
   }, [accessToken]);
 
   const openAddModal = () => {
@@ -120,7 +123,7 @@ export default function AdminTeamPage() {
       education: "",
       credentials: "",
       licenseNumber: "",
-      licenseState: "Illinois",
+      licenseState: "",
       photoUrl: "",
       locationId: locations[0]?.id || null,
       displayOrder: team.length,
@@ -141,7 +144,7 @@ export default function AdminTeamPage() {
       education: member.education || "",
       credentials: member.credentials || "",
       licenseNumber: member.licenseNumber || "",
-      licenseState: member.licenseState || "Illinois",
+      licenseState: member.licenseState || "",
       photoUrl: member.photoUrl || "",
       locationId: member.locationId || null,
       displayOrder: member.displayOrder,
@@ -216,6 +219,24 @@ export default function AdminTeamPage() {
       loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to toggle status.";
+      setErrorMessage(msg);
+    }
+  };
+
+  const handleMove = async (index: number, direction: -1 | 1) => {
+    if (!accessToken) return;
+    const target = index + direction;
+    if (target < 0 || target >= team.length) return;
+    const ordered = [...team];
+    const [moved] = ordered.splice(index, 1);
+    ordered.splice(target, 0, moved);
+    try {
+      await adminReorderTeam(ordered.map((m) => m.id), accessToken);
+      setTeam(ordered);
+      setSuccessMessage("Team display order saved.");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to reorder team members.";
       setErrorMessage(msg);
     }
   };
@@ -342,6 +363,27 @@ export default function AdminTeamPage() {
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2 self-end sm:self-center">
+                <div className="flex flex-col gap-0.5 mr-1" role="group" aria-label="Reorder team member">
+                  <button
+                    type="button"
+                    onClick={() => handleMove(team.indexOf(member), -1)}
+                    disabled={team.indexOf(member) === 0}
+                    aria-label={`Move ${member.displayName} up`}
+                    className="h-5 w-6 rounded border border-line text-ink-soft hover:text-ink hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed text-[10px] leading-none"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMove(team.indexOf(member), 1)}
+                    disabled={team.indexOf(member) === team.length - 1}
+                    aria-label={`Move ${member.displayName} down`}
+                    className="h-5 w-6 rounded border border-line text-ink-soft hover:text-ink hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed text-[10px] leading-none"
+                  >
+                    ▼
+                  </button>
+                </div>
+
                 <Button onClick={() => openEditModal(member)} variant="secondary" size="sm">
                   <Edit className="h-3.5 w-3.5 mr-1" />
                   <span>Edit</span>
@@ -399,10 +441,10 @@ export default function AdminTeamPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <TextField
                     id="member-display"
-                    label="Display Name (e.g. Dr. Sarah Marlow, DDS)"
+                    label="Display Name (e.g. Dr. Full Name, BDS)"
                     value={form.displayName}
                     onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                    placeholder="Dr. Sarah Marlow, DDS"
+                    placeholder="e.g. Dr. Attending Clinician, BDS"
                     required
                   />
                   <TextField

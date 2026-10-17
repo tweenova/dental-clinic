@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,10 +16,14 @@ class ServiceCreateRequest(BaseModel):
     code: Optional[str] = None
     insuranceNote: Optional[str] = None
     recommendedInterval: Optional[str] = None
+    recallIntervalDays: Optional[int] = None
     displayOrder: int = 0
     isHighlighted: bool = False
     isPublic: bool = True
     isActive: bool = True
+    bookableOnline: bool = True
+    bufferMinutes: int = 0
+    providerIds: Optional[List[UUID]] = None
 
     model_config = ConfigDict(extra="ignore")
 
@@ -36,10 +40,14 @@ class ServiceUpdateRequest(BaseModel):
     code: Optional[str] = None
     insuranceNote: Optional[str] = None
     recommendedInterval: Optional[str] = None
+    recallIntervalDays: Optional[int] = None
     displayOrder: Optional[int] = None
     isHighlighted: Optional[bool] = None
     isPublic: Optional[bool] = None
     isActive: Optional[bool] = None
+    bookableOnline: Optional[bool] = None
+    bufferMinutes: Optional[int] = None
+    providerIds: Optional[List[UUID]] = None
 
     model_config = ConfigDict(extra="ignore")
 
@@ -62,11 +70,16 @@ class ServiceResponse(BaseModel):
     code: Optional[str] = None
     insuranceNote: Optional[str] = None
     recommendedInterval: Optional[str] = None
+    recallIntervalDays: Optional[int] = None
     displayOrder: int
     isHighlighted: bool
     isActive: bool
     isPublic: bool
+    bookableOnline: bool = True
+    bufferMinutes: int = 0
+    providerIds: List[UUID] = []
     createdAt: datetime
     updatedAt: datetime
 
     model_config = ConfigDict(from_attributes=True)
+

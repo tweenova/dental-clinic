@@ -32,6 +32,9 @@ class PostgresOrganizationRepository(OrganizationRepository):
             background_color=getattr(orm, "background_color", None),
             primary_font=getattr(orm, "primary_font", None),
             secondary_font=getattr(orm, "secondary_font", None),
+            currency_code=getattr(orm, "currency_code", "PKR") or "PKR",
+            currency_symbol=getattr(orm, "currency_symbol", "Rs") or "Rs",
+            timezone=getattr(orm, "timezone", "Asia/Karachi") or "Asia/Karachi",
             is_active=orm.is_active,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
@@ -63,6 +66,9 @@ class PostgresOrganizationRepository(OrganizationRepository):
             existing.background_color = org.background_color
             existing.primary_font = org.primary_font
             existing.secondary_font = org.secondary_font
+            existing.currency_code = org.currency_code
+            existing.currency_symbol = org.currency_symbol
+            existing.timezone = org.timezone
             existing.is_active = org.is_active
             existing.updated_at = org.updated_at
             await self._session.flush()
@@ -83,6 +89,9 @@ class PostgresOrganizationRepository(OrganizationRepository):
                 background_color=org.background_color,
                 primary_font=org.primary_font,
                 secondary_font=org.secondary_font,
+                currency_code=org.currency_code,
+                currency_symbol=org.currency_symbol,
+                timezone=org.timezone,
                 is_active=org.is_active,
                 created_at=org.created_at,
                 updated_at=org.updated_at,

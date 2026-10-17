@@ -32,7 +32,7 @@ export function Doctor() {
     return {
       ...member,
       locationName: loc?.name || "Practice-wide Facility",
-      city: loc?.city || (availableCities[0] ?? "Chicago"),
+      city: loc?.city || (availableCities[0] ?? "Main Office"),
     };
   });
 

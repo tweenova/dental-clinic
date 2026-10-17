@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -6,11 +6,29 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
 from app.api.deps import (
+    get_activity_log_repository,
+    get_booking_repository,
     get_clinical_note_service,
     get_dental_chart_service,
     get_doctor_service,
+    get_encounter_repository,
     get_encounter_service,
+    get_medical_alert_service,
+    get_patient_repository,
+    get_reception_service,
+    get_visit_payment_repository,
     require_doctor,
+    require_doctor_strictly,
+)
+from app.application.services.medical_alert_service import MedicalAlertService
+from app.application.services.reception_service import ReceptionService
+from app.domain.repositories.booking_repo import BookingRepository
+from app.domain.repositories.encounter_repo import EncounterRepository
+from app.domain.repositories.patient_repo import PatientRepository
+from app.domain.repositories.visit_payment_repo import VisitPaymentRepository
+from app.infrastructure.repositories.postgres_activity_repo import (
+    PostgresActivityLogRepository,
+    record_activity,
 )
 from app.application.dtos.clinical_note_dto import (
     AmendNoteRequestDto,
@@ -32,6 +50,8 @@ from app.application.dtos.dental_chart_dto import (
 from app.application.dtos.encounter_dto import (
     CreateEncounterRequestDto,
     EncounterResponseDto,
+    FinishVisitRequestDto,
+    UnsignedNoteItemDto,
     UpdateEncounterStatusRequestDto,
 )
 from app.application.dtos.reception_dto import BookingResponseDto
@@ -53,12 +73,35 @@ class DoctorNoteUpdateRequest(BaseModel):
     staffNotes: str
 
 
+async def _determine_payment_status(payment_repo: Optional[VisitPaymentRepository], booking_id: UUID) -> str:
+    if not payment_repo:
+        return "unpaid"
+    try:
+        payments = await payment_repo.list_by_booking_id(booking_id)
+        active = [p for p in payments if not p.is_voided]
+        if not active:
+            return "unpaid"
+        total_charged = max([p.amount_charged_cents for p in active], default=0)
+        total_paid = sum(p.amount_cents for p in active)
+        if total_charged > 0 and total_paid >= total_charged:
+            return "paid"
+        elif total_paid > 0 and total_charged == 0:
+            return "paid"
+        elif total_paid > 0:
+            return "partial"
+        return "unpaid"
+    except Exception:
+        return "unpaid"
+
+
 @router.get("/schedule", response_model=List[BookingResponseDto])
 async def get_doctor_schedule(
     target_date: Optional[date] = Query(None),
     clinic_id: Optional[UUID] = Query(None),
     current_user: User = Depends(require_doctor),
     doctor_service: DoctorService = Depends(get_doctor_service),
+    medical_alert_service: MedicalAlertService = Depends(get_medical_alert_service),
+    payment_repo: VisitPaymentRepository = Depends(get_visit_payment_repository),
 ) -> List[BookingResponseDto]:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     is_admin_level = user_role_str.lower() in ("admin", "super admin", "platform owner")
@@ -74,30 +117,47 @@ async def get_doctor_schedule(
         clinic_id=effective_clinic,
         target_date=target_date,
     )
-    return [
-        BookingResponseDto(
-            id=b.id,
-            confirmationId=b.confirmation_id,
-            preferredDate=b.preferred_date,
-            preferredTime=b.preferred_time,
-            patientFullName=b.patient_full_name,
-            patientPhone=b.patient_phone,
-            patientEmail=b.patient_email,
-            status=b.status,
-            clinicId=b.clinic_id,
-            patientId=b.patient_id,
-            serviceId=b.service_id,
-            teamMemberId=b.team_member_id,
-            slotId=b.slot_id,
-            notes=b.notes,
-            staffNotes=b.staff_notes,
-            utmSource=b.utm_source,
-            utmCampaign=b.utm_campaign,
-            createdAt=b.created_at,
-            updatedAt=b.updated_at,
+
+    patient_ids = [b.patient_id for b in bookings if b.patient_id]
+    patients_with_alerts = set()
+    for pid in patient_ids:
+        if await medical_alert_service.check_alerts_on_file(pid):
+            patients_with_alerts.add(pid)
+
+    response = []
+    for b in bookings:
+        status_val = await _determine_payment_status(payment_repo, b.id)
+        response.append(
+            BookingResponseDto(
+                id=b.id,
+                confirmationId=b.confirmation_id,
+                preferredDate=b.preferred_date,
+                preferredTime=b.preferred_time,
+                patientFullName=b.patient_full_name,
+                patientPhone=b.patient_phone,
+                patientEmail=b.patient_email,
+                status=b.status,
+                clinicId=b.clinic_id,
+                patientId=b.patient_id,
+                serviceId=b.service_id,
+                teamMemberId=b.team_member_id,
+                slotId=b.slot_id,
+                notes=b.notes,
+                staffNotes=b.staff_notes,
+                utmSource=b.utm_source,
+                utmCampaign=b.utm_campaign,
+                arrivedAt=b.arrived_at,
+                startedAt=b.started_at,
+                completedAt=b.completed_at,
+                cancellationReason=b.cancellation_reason,
+                cancelledByUserId=b.cancelled_by_user_id,
+                hasAlerts=b.patient_id in patients_with_alerts if b.patient_id else False,
+                paymentStatus=status_val,
+                createdAt=b.created_at,
+                updatedAt=b.updated_at,
+            )
         )
-        for b in bookings
-    ]
+    return response
 
 
 @router.get("/appointments/{id}", response_model=BookingResponseDto)
@@ -105,6 +165,7 @@ async def get_appointment_detail(
     id: UUID,
     current_user: User = Depends(require_doctor),
     doctor_service: DoctorService = Depends(get_doctor_service),
+    payment_repo: VisitPaymentRepository = Depends(get_visit_payment_repository),
 ) -> BookingResponseDto:
     b = await doctor_service.get_appointment(id)
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
@@ -123,6 +184,7 @@ async def get_appointment_detail(
                 detail="Access forbidden: You cannot view appointment details for another doctor's assigned patient.",
             )
 
+    status_val = await _determine_payment_status(payment_repo, b.id)
     return BookingResponseDto(
         id=b.id,
         confirmationId=b.confirmation_id,
@@ -141,8 +203,204 @@ async def get_appointment_detail(
         staffNotes=b.staff_notes,
         utmSource=b.utm_source,
         utmCampaign=b.utm_campaign,
+        arrivedAt=b.arrived_at,
+        startedAt=b.started_at,
+        completedAt=b.completed_at,
+        cancellationReason=b.cancellation_reason,
+        cancelledByUserId=b.cancelled_by_user_id,
+        paymentStatus=status_val,
         createdAt=b.created_at,
         updatedAt=b.updated_at,
+    )
+
+
+@router.post("/appointments/{id}/start", response_model=BookingResponseDto)
+async def start_doctor_appointment(
+    id: UUID,
+    current_user: User = Depends(require_doctor_strictly),
+    reception_service: ReceptionService = Depends(get_reception_service),
+    doctor_service: DoctorService = Depends(get_doctor_service),
+) -> BookingResponseDto:
+    """
+    Transitions an arrived appointment to in_progress and records started_at.
+    """
+    user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if user_role_str.lower() != "doctor":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: Doctor role strictly required to start appointment.",
+        )
+    booking = await doctor_service.get_appointment(id)
+
+    if not current_user.team_member_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: Doctor account is not linked to a clinical staff profile.",
+        )
+    if booking.team_member_id and booking.team_member_id != current_user.team_member_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: You cannot start an appointment for another doctor's assigned patient.",
+        )
+
+    updated = await reception_service.update_booking_status(
+        booking_id=id,
+        new_status="in_progress",
+        user_id=current_user.id,
+    )
+    return BookingResponseDto(
+        id=updated.id,
+        confirmationId=updated.confirmation_id,
+        preferredDate=updated.preferred_date,
+        preferredTime=updated.preferred_time,
+        patientFullName=updated.patient_full_name,
+        patientPhone=updated.patient_phone,
+        patientEmail=updated.patient_email,
+        status=updated.status,
+        clinicId=updated.clinic_id,
+        patientId=updated.patient_id,
+        serviceId=updated.service_id,
+        teamMemberId=updated.team_member_id,
+        slotId=updated.slot_id,
+        notes=updated.notes,
+        staffNotes=updated.staff_notes,
+        utmSource=updated.utm_source,
+        utmCampaign=updated.utm_campaign,
+        arrivedAt=updated.arrived_at,
+        startedAt=updated.started_at,
+        completedAt=updated.completed_at,
+        cancellationReason=updated.cancellation_reason,
+        cancelledByUserId=updated.cancelled_by_user_id,
+        createdAt=updated.created_at,
+        updatedAt=updated.updated_at,
+    )
+
+
+@router.get("/unsigned-notes", response_model=List[UnsignedNoteItemDto])
+async def get_doctor_unsigned_notes(
+    current_user: User = Depends(require_doctor),
+    encounter_service: EncounterService = Depends(get_encounter_service),
+) -> List[UnsignedNoteItemDto]:
+    """
+    Returns the clinician's draft encounters / unsigned clinical notes for quick access and signing.
+    """
+    user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    is_admin_level = user_role_str.lower() in ("admin", "super admin", "platform owner")
+
+    if not is_admin_level and not current_user.team_member_id:
+        return []
+
+    items = await encounter_service.get_unsigned_encounters(
+        current_user_team_member_id=current_user.team_member_id,
+        is_admin=is_admin_level,
+    )
+    return [
+        UnsignedNoteItemDto(
+            encounterId=item["encounter"].id,
+            bookingId=item["encounter"].booking_id,
+            patientId=item["encounter"].patient_id,
+            patientName=item["patient_name"],
+            date=item["encounter"].created_at,
+            status=item["encounter"].status,
+            chiefComplaint=item["encounter"].chief_complaint,
+        )
+        for item in items
+    ]
+
+
+@router.post("/appointments/{id}/finish", response_model=BookingResponseDto)
+async def finish_doctor_appointment(
+    id: UUID,
+    req: Optional[FinishVisitRequestDto] = None,
+    current_user: User = Depends(require_doctor_strictly),
+    doctor_service: DoctorService = Depends(get_doctor_service),
+    encounter_service: EncounterService = Depends(get_encounter_service),
+    reception_service: ReceptionService = Depends(get_reception_service),
+) -> BookingResponseDto:
+    """
+    Finish visit action:
+    1. Requires an encounter to exist for the booking (does not allow finishing without an encounter).
+    2. Transitions booking to completed and sets completed_at.
+    3. An unsigned draft does NOT block finishing, but remains in the unsigned list.
+    4. Optional follow-up creates a linked task for reception.
+    """
+    user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if user_role_str.lower() != "doctor":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: Doctor role strictly required to finish appointment.",
+        )
+    booking = await doctor_service.get_appointment(id)
+
+    if not current_user.team_member_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: Doctor account is not linked to a clinical staff profile.",
+        )
+    if booking.team_member_id and booking.team_member_id != current_user.team_member_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: You cannot finish an appointment assigned to another clinician.",
+        )
+
+    # Validate that an encounter exists for this booking
+    encounter = await encounter_service.get_any_encounter_by_booking(booking.id)
+    if not encounter:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot finish visit: a clinical encounter must exist for this appointment.",
+        )
+
+    # Transition booking to completed
+    updated = await reception_service.update_booking_status(
+        booking_id=id,
+        new_status="completed",
+        user_id=current_user.id,
+    )
+
+    # Optional follow-up task creation for reception (Task 1.3)
+    if req and (req.followUpDays or req.followUpWeeks):
+        days = req.followUpDays or ((req.followUpWeeks or 0) * 7)
+        timing_str = f"{req.followUpWeeks} weeks" if req.followUpWeeks else f"{req.followUpDays} days"
+        due_datetime = datetime.now(timezone.utc) + timedelta(days=days)
+
+        task_title = f"Book follow-up: {booking.patient_full_name} in {timing_str}"
+        await reception_service.create_task(
+            title=task_title,
+            clinic_id=booking.clinic_id,
+            patient_id=booking.patient_id,
+            booking_id=booking.id,
+            description=req.followUpNote or f"Doctor requested follow-up appointment in {timing_str}.",
+            priority="high",
+            status="pending",
+            due_date=due_datetime,
+        )
+
+    return BookingResponseDto(
+        id=updated.id,
+        confirmationId=updated.confirmation_id,
+        preferredDate=updated.preferred_date,
+        preferredTime=updated.preferred_time,
+        patientFullName=updated.patient_full_name,
+        patientPhone=updated.patient_phone,
+        patientEmail=updated.patient_email,
+        status=updated.status,
+        clinicId=updated.clinic_id,
+        patientId=updated.patient_id,
+        serviceId=updated.service_id,
+        teamMemberId=updated.team_member_id,
+        slotId=updated.slot_id,
+        notes=updated.notes,
+        staffNotes=updated.staff_notes,
+        utmSource=updated.utm_source,
+        utmCampaign=updated.utm_campaign,
+        arrivedAt=updated.arrived_at,
+        startedAt=updated.started_at,
+        completedAt=updated.completed_at,
+        cancellationReason=updated.cancellation_reason,
+        cancelledByUserId=updated.cancelled_by_user_id,
+        createdAt=updated.created_at,
+        updatedAt=updated.updated_at,
     )
 
 
@@ -150,7 +408,7 @@ async def get_appointment_detail(
 async def update_appointment_notes(
     id: UUID,
     req: DoctorNoteUpdateRequest,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     doctor_service: DoctorService = Depends(get_doctor_service),
 ) -> BookingResponseDto:
     b = await doctor_service.get_appointment(id)
@@ -198,7 +456,7 @@ async def update_appointment_notes(
 @router.post("/encounters", response_model=EncounterResponseDto, status_code=status.HTTP_201_CREATED)
 async def create_clinical_encounter(
     req: CreateEncounterRequestDto,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     encounter_service: EncounterService = Depends(get_encounter_service),
 ) -> EncounterResponseDto:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
@@ -259,6 +517,7 @@ async def get_clinical_encounter(
     id: UUID,
     current_user: User = Depends(require_doctor),
     encounter_service: EncounterService = Depends(get_encounter_service),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
 ) -> EncounterResponseDto:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     is_admin_level = user_role_str.lower() in ("admin", "super admin", "platform owner")
@@ -268,6 +527,14 @@ async def get_clinical_encounter(
             encounter_id=id,
             current_user_team_member_id=current_user.team_member_id,
             is_admin=is_admin_level,
+        )
+        await record_activity(
+            activity_repo,
+            action="clinical_read_encounter",
+            entity_type="encounter",
+            entity_id=encounter.id,
+            user_id=current_user.id,
+            details={"patient_id": str(encounter.patient_id)},
         )
         return EncounterResponseDto(
             id=encounter.id,
@@ -295,6 +562,7 @@ async def get_active_encounter_by_booking(
     booking_id: UUID,
     current_user: User = Depends(require_doctor),
     encounter_service: EncounterService = Depends(get_encounter_service),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
 ) -> Optional[EncounterResponseDto]:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     is_admin_level = user_role_str.lower() in ("admin", "super admin", "platform owner")
@@ -310,6 +578,14 @@ async def get_active_encounter_by_booking(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No active encounter found for this booking.",
             )
+        await record_activity(
+            activity_repo,
+            action="clinical_read_encounter",
+            entity_type="encounter",
+            entity_id=encounter.id,
+            user_id=current_user.id,
+            details={"booking_id": str(booking_id), "patient_id": str(encounter.patient_id)},
+        )
         return EncounterResponseDto(
             id=encounter.id,
             patientId=encounter.patient_id,
@@ -334,6 +610,7 @@ async def list_patient_encounters(
     patient_id: UUID,
     current_user: User = Depends(require_doctor),
     encounter_service: EncounterService = Depends(get_encounter_service),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
 ) -> List[EncounterResponseDto]:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     is_admin_level = user_role_str.lower() in ("admin", "super admin", "platform owner")
@@ -343,6 +620,13 @@ async def list_patient_encounters(
             patient_id=patient_id,
             current_user_team_member_id=current_user.team_member_id,
             is_admin=is_admin_level,
+        )
+        await record_activity(
+            activity_repo,
+            action="clinical_read_encounters",
+            entity_type="patient",
+            entity_id=patient_id,
+            user_id=current_user.id,
         )
         return [
             EncounterResponseDto(
@@ -372,7 +656,7 @@ async def list_patient_encounters(
 async def update_encounter_status(
     id: UUID,
     req: UpdateEncounterStatusRequestDto,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     encounter_service: EncounterService = Depends(get_encounter_service),
 ) -> EncounterResponseDto:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
@@ -416,6 +700,7 @@ async def get_encounter_clinical_note(
     id: UUID,
     current_user: User = Depends(require_doctor),
     note_service: ClinicalNoteService = Depends(get_clinical_note_service),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
 ) -> Optional[ClinicalNoteResponseDto]:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     is_admin_level = user_role_str.lower() in ("admin", "super admin", "platform owner")
@@ -431,6 +716,15 @@ async def get_encounter_clinical_note(
 
         if not note:
             return None
+
+        await record_activity(
+            activity_repo,
+            action="clinical_read_note",
+            entity_type="encounter_note",
+            entity_id=note.id,
+            user_id=current_user.id,
+            details={"encounter_id": str(id), "revision": note.revision_number},
+        )
 
         return ClinicalNoteResponseDto(
             id=note.id,
@@ -463,7 +757,7 @@ async def get_encounter_clinical_note(
 async def save_encounter_draft_note(
     id: UUID,
     req: SaveDraftNoteRequestDto,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     note_service: ClinicalNoteService = Depends(get_clinical_note_service),
 ) -> ClinicalNoteResponseDto:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
@@ -526,7 +820,7 @@ async def save_encounter_draft_note(
 @router.post("/encounters/{id}/note/sign", response_model=ClinicalNoteResponseDto)
 async def sign_encounter_clinical_note(
     id: UUID,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     note_service: ClinicalNoteService = Depends(get_clinical_note_service),
 ) -> ClinicalNoteResponseDto:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
@@ -589,7 +883,7 @@ async def sign_encounter_clinical_note(
 async def amend_encounter_clinical_note(
     id: UUID,
     req: AmendNoteRequestDto,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     note_service: ClinicalNoteService = Depends(get_clinical_note_service),
 ) -> ClinicalNoteResponseDto:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
@@ -654,6 +948,7 @@ async def list_encounter_note_revisions(
     id: UUID,
     current_user: User = Depends(require_doctor),
     note_service: ClinicalNoteService = Depends(get_clinical_note_service),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
 ) -> List[ClinicalNoteResponseDto]:
     user_role_str = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
     is_admin_level = user_role_str.lower() in ("admin", "super admin", "platform owner")
@@ -664,6 +959,14 @@ async def list_encounter_note_revisions(
             current_user_team_member_id=current_user.team_member_id,
             clinic_id=current_user.clinic_id,
             is_admin=is_admin_level,
+        )
+        await record_activity(
+            activity_repo,
+            action="clinical_read_note_revisions",
+            entity_type="encounter_note",
+            entity_id=id,
+            user_id=current_user.id,
+            details={"encounter_id": str(id)},
         )
         return [
             ClinicalNoteResponseDto(
@@ -756,6 +1059,7 @@ async def get_patient_dental_chart(
     patient_id: UUID,
     current_user: User = Depends(require_doctor),
     chart_service: DentalChartService = Depends(get_dental_chart_service),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
 ) -> DentalChartResponseDto:
     team_member_id, clinic_id, is_admin_level, _ = _chart_identity(current_user)
     try:
@@ -764,6 +1068,14 @@ async def get_patient_dental_chart(
             current_user_team_member_id=team_member_id,
             clinic_id=clinic_id,
             is_admin=is_admin_level,
+        )
+        await record_activity(
+            activity_repo,
+            action="clinical_read_chart",
+            entity_type="dental_chart",
+            entity_id=patient_id,
+            user_id=current_user.id,
+            details={"patient_id": str(patient_id)},
         )
         return DentalChartResponseDto(
             patientId=patient_id,
@@ -782,6 +1094,7 @@ async def get_patient_dental_chart_history(
     patient_id: UUID,
     current_user: User = Depends(require_doctor),
     chart_service: DentalChartService = Depends(get_dental_chart_service),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
 ) -> ChartHistoryResponseDto:
     team_member_id, clinic_id, is_admin_level, _ = _chart_identity(current_user)
     try:
@@ -790,6 +1103,14 @@ async def get_patient_dental_chart_history(
             current_user_team_member_id=team_member_id,
             clinic_id=clinic_id,
             is_admin=is_admin_level,
+        )
+        await record_activity(
+            activity_repo,
+            action="clinical_read_chart_history",
+            entity_type="dental_chart",
+            entity_id=patient_id,
+            user_id=current_user.id,
+            details={"patient_id": str(patient_id)},
         )
         return ChartHistoryResponseDto(
             patientId=patient_id,
@@ -807,6 +1128,7 @@ async def get_encounter_dental_chart(
     id: UUID,
     current_user: User = Depends(require_doctor),
     chart_service: DentalChartService = Depends(get_dental_chart_service),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
 ) -> EncounterChartResponseDto:
     team_member_id, clinic_id, is_admin_level, _ = _chart_identity(current_user)
     try:
@@ -815,6 +1137,14 @@ async def get_encounter_dental_chart(
             current_user_team_member_id=team_member_id,
             clinic_id=clinic_id,
             is_admin=is_admin_level,
+        )
+        await record_activity(
+            activity_repo,
+            action="clinical_read_encounter_chart",
+            entity_type="dental_chart",
+            entity_id=id,
+            user_id=current_user.id,
+            details={"encounter_id": str(id)},
         )
         return EncounterChartResponseDto(
             encounterId=encounter.id,
@@ -836,7 +1166,7 @@ async def get_encounter_dental_chart(
 async def record_dental_finding(
     id: UUID,
     req: RecordFindingRequestDto,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     chart_service: DentalChartService = Depends(get_dental_chart_service),
 ) -> DentalChartFindingResponseDto:
     team_member_id, clinic_id, is_admin_level, user_id = _chart_identity(current_user)
@@ -870,7 +1200,7 @@ async def record_dental_finding(
 async def correct_dental_finding(
     finding_id: UUID,
     req: CorrectFindingRequestDto,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     chart_service: DentalChartService = Depends(get_dental_chart_service),
 ) -> DentalChartFindingResponseDto:
     team_member_id, clinic_id, is_admin_level, user_id = _chart_identity(current_user)
@@ -904,7 +1234,7 @@ async def correct_dental_finding(
 async def resolve_dental_finding(
     finding_id: UUID,
     req: Optional[ResolveFindingRequestDto] = None,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     chart_service: DentalChartService = Depends(get_dental_chart_service),
 ) -> DentalChartFindingResponseDto:
     team_member_id, clinic_id, is_admin_level, user_id = _chart_identity(current_user)
@@ -940,7 +1270,7 @@ async def resolve_dental_finding(
 async def create_planned_procedure(
     id: UUID,
     req: CreateProcedureRequestDto,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     chart_service: DentalChartService = Depends(get_dental_chart_service),
 ) -> DentalProcedureResponseDto:
     team_member_id, clinic_id, is_admin_level, user_id = _chart_identity(current_user)
@@ -972,7 +1302,7 @@ async def create_planned_procedure(
 async def update_procedure_status(
     procedure_id: UUID,
     req: UpdateProcedureStatusRequestDto,
-    current_user: User = Depends(require_doctor),
+    current_user: User = Depends(require_doctor_strictly),
     chart_service: DentalChartService = Depends(get_dental_chart_service),
 ) -> DentalProcedureResponseDto:
     team_member_id, clinic_id, is_admin_level, user_id = _chart_identity(current_user)
@@ -998,3 +1328,141 @@ async def update_procedure_status(
         if "not found" in err_msg.lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=err_msg)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
+
+
+# --- Doctor Patient Scoped DTOs and Endpoints ---
+
+class DoctorPatientSummaryDto(BaseModel):
+    id: UUID
+    firstName: str
+    lastName: str
+    fullName: str
+    phone: str
+    email: Optional[str] = None
+    dateOfBirth: Optional[date] = None
+    clinicId: Optional[UUID] = None
+    createdAt: Optional[datetime] = None
+
+
+class DoctorPatientVisitHistoryDto(BaseModel):
+    id: UUID
+    bookingDate: date
+    bookingTime: str
+    serviceId: Optional[str] = None
+    teamMemberId: Optional[UUID] = None
+    status: str
+
+
+class DoctorPatientEncounterSummaryDto(BaseModel):
+    id: UUID
+    bookingId: Optional[UUID] = None
+    clinicianId: UUID
+    status: str
+    startedAt: datetime
+    endedAt: Optional[datetime] = None
+
+
+class DoctorPatientDetailDto(BaseModel):
+    id: UUID
+    firstName: str
+    lastName: str
+    fullName: str
+    phone: str
+    email: Optional[str] = None
+    fileNumber: Optional[str] = None
+    dateOfBirth: Optional[date] = None
+    notes: Optional[str] = None
+    clinicId: Optional[UUID] = None
+    createdAt: Optional[datetime] = None
+    visits: List[DoctorPatientVisitHistoryDto] = []
+    encounters: List[DoctorPatientEncounterSummaryDto] = []
+
+
+@router.get("/patients", response_model=List[DoctorPatientSummaryDto])
+async def search_doctor_patients(
+    q: Optional[str] = Query(None, description="Search by name, phone, or email"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_doctor),
+    patient_repo: PatientRepository = Depends(get_patient_repository),
+) -> List[DoctorPatientSummaryDto]:
+    """Doctor-scoped patient search returning clinical demographics only."""
+    clinic_id = current_user.clinic_id if current_user.clinic_id else None
+    patients, _ = await patient_repo.search(query=q, clinic_id=clinic_id, limit=limit, offset=offset)
+    return [
+        DoctorPatientSummaryDto(
+            id=p.id,
+            firstName=p.first_name,
+            lastName=p.last_name,
+            fullName=f"{p.first_name} {p.last_name}".strip(),
+            phone=p.phone,
+            email=p.email,
+            dateOfBirth=p.date_of_birth,
+            clinicId=p.clinic_id,
+            createdAt=p.created_at,
+        )
+        for p in patients
+    ]
+
+
+@router.get("/patients/{patient_id}", response_model=DoctorPatientDetailDto)
+async def get_doctor_patient_detail(
+    patient_id: UUID,
+    current_user: User = Depends(require_doctor),
+    patient_repo: PatientRepository = Depends(get_patient_repository),
+    booking_repo: BookingRepository = Depends(get_booking_repository),
+    encounter_repo: EncounterRepository = Depends(get_encounter_repository),
+) -> DoctorPatientDetailDto:
+    """Doctor-scoped patient detail returning demographics, visit history, and encounters entry points."""
+    patient = await patient_repo.get_by_id(patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient record not found.")
+
+    if current_user.clinic_id and patient.clinic_id and patient.clinic_id != current_user.clinic_id:
+        is_admin_level = str(current_user.role.value).strip().lower() in ("admin", "owner", "superadmin")
+        if not is_admin_level:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cross-clinic access forbidden.")
+
+    bookings = await booking_repo.get_patient_bookings(patient.id)
+    bookings_sorted = sorted(bookings, key=lambda b: b.preferred_date, reverse=True)
+    visits_dto = [
+        DoctorPatientVisitHistoryDto(
+            id=b.id,
+            bookingDate=b.preferred_date,
+            bookingTime=b.preferred_time,
+            serviceId=b.service_id,
+            teamMemberId=b.team_member_id,
+            status=b.status,
+        )
+        for b in bookings_sorted
+    ]
+
+    encounters = await encounter_repo.list_by_patient_id(patient.id)
+    encounters_dto = [
+        DoctorPatientEncounterSummaryDto(
+            id=e.id,
+            bookingId=e.booking_id,
+            clinicianId=e.clinician_id,
+            status=e.status,
+            startedAt=e.started_at,
+            endedAt=e.ended_at,
+        )
+        for e in encounters
+    ]
+
+    return DoctorPatientDetailDto(
+        id=patient.id,
+        firstName=patient.first_name,
+        lastName=patient.last_name,
+        fullName=f"{patient.first_name} {patient.last_name}".strip(),
+        phone=patient.phone,
+        email=patient.email,
+        fileNumber=getattr(patient, "file_number", None),
+        dateOfBirth=patient.date_of_birth,
+        notes=patient.notes,
+        clinicId=patient.clinic_id,
+        createdAt=patient.created_at,
+        visits=visits_dto,
+        encounters=encounters_dto,
+    )
+

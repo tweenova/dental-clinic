@@ -24,14 +24,16 @@ export default function LoginPage() {
   // Explain why the visitor landed here (session expiry, inactivity timeout,
   // or an account without a staff workspace).
   useEffect(() => {
-    const reason = new URLSearchParams(window.location.search).get("reason");
-    if (reason === "session_expired") {
-      setInfoMessage("Your session expired. Please sign in again.");
-    } else if (reason === "inactivity") {
-      setInfoMessage("You were signed out after a period of inactivity.");
-    } else if (reason === "no-workspace") {
-      setInfoMessage("This account does not have a staff workspace. Contact your administrator.");
-    }
+    queueMicrotask(() => {
+      const reason = new URLSearchParams(window.location.search).get("reason");
+      if (reason === "session_expired") {
+        setInfoMessage("Your session expired. Please sign in again.");
+      } else if (reason === "inactivity") {
+        setInfoMessage("You were signed out after a period of inactivity.");
+      } else if (reason === "no-workspace") {
+        setInfoMessage("This account does not have a staff workspace. Contact your administrator.");
+      }
+    });
   }, []);
 
   useEffect(() => {

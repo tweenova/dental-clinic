@@ -45,11 +45,21 @@ async def pg_session():
         )
 
     async with session_factory() as session:
+        # Clean up any leftover test records before test runs
+        try:
+            await session.execute(
+                text("DELETE FROM appointments_legacy WHERE confirmation_id LIKE 'TEST-%'")
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+
         yield session
+
         # Clean up any test records inserted with the test prefix
         try:
             await session.execute(
-                text("DELETE FROM appointments WHERE confirmation_id LIKE 'TEST-%'")
+                text("DELETE FROM appointments_legacy WHERE confirmation_id LIKE 'TEST-%'")
             )
             await session.commit()
         except Exception:
@@ -90,7 +100,7 @@ async def test_postgres_appointment_persistence(pg_session: AsyncSession):
         preferred_date=date(2026, 11, 20),
         preferred_time="10:00 AM",
         patient_full_name="Integration Test Patient",
-        patient_phone="(312) 555-0999",
+        patient_phone="+92 300 5550999",
         patient_email="integration.test@example.com",
         notes="Integration test notes",
         utm_source="test_runner",
@@ -128,7 +138,7 @@ async def test_postgres_unique_constraint(pg_session: AsyncSession):
         preferred_date=date(2026, 11, 21),
         preferred_time="1:30 PM",
         patient_full_name="Test Patient One",
-        patient_phone="(312) 555-0101",
+        patient_phone="+92 300 5550101",
         patient_email="p1@example.com",
     )
     await repo.save(apt1)
@@ -140,7 +150,7 @@ async def test_postgres_unique_constraint(pg_session: AsyncSession):
         preferred_date=date(2026, 11, 22),
         preferred_time="8:30 AM",
         patient_full_name="Test Patient Two",
-        patient_phone="(312) 555-0102",
+        patient_phone="+92 300 5550102",
         patient_email="p2@example.com",
     )
     pg_session.add(PostgresAppointmentRepository._to_orm(apt2))

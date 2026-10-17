@@ -13,7 +13,7 @@ import { LegalContactBox } from "@/components/layout/legal-contact-box";
 export const metadata = {
   title: "Accessibility Statement | Marlow Dental",
   description:
-    "Physical and digital accessibility policies, wheelchair access, and accommodations at Marlow Dental in Lincoln Park, Chicago.",
+    "Physical and digital accessibility policies, wheelchair access, and accommodations at Marlow Dental.",
 };
 
 /**
@@ -40,7 +40,7 @@ export default function AccessibilityPage() {
               Accessibility Statement
             </h1>
             <p className="mt-2 text-xs text-ink-soft">
-              Marlow Dental, P.C. · Lincoln Park, Chicago
+              Marlow Dental · Patient Accessibility
             </p>
           </div>
 
@@ -50,13 +50,13 @@ export default function AccessibilityPage() {
                 1. Physical Clinic Accommodations
               </h2>
               <p>
-                We believe healthcare should be easily accessible to all members of our Chicago community:
+                We believe healthcare should be easily accessible to all members of our community:
               </p>
               <ul className="space-y-2 text-xs sm:text-sm pt-1">
                 <li className="flex items-start gap-2.5">
                   <CheckCircle2 className="h-4 w-4 text-forest dark:text-emerald-400 shrink-0 mt-0.5" />
                   <span>
-                    <strong>Ground-Floor Suite:</strong> Our office suite is on the ground level with zero stairs or steps required from the Alder Street sidewalk entrance.
+                    <strong>Ground-Floor Suite:</strong> Our office suite is on the ground level with zero stairs or steps required from the main entrance.
                   </span>
                 </li>
                 <li className="flex items-start gap-2.5">

@@ -1,12 +1,12 @@
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models.encounter import ClinicalEncounter
 from app.domain.repositories.encounter_repo import EncounterRepository
-from app.infrastructure.database.orm_models import ClinicalEncounterORM
+from app.infrastructure.database.orm_models import ClinicalEncounterORM, ClinicalNoteORM, PatientORM
 
 
 class PostgresEncounterRepository(EncounterRepository):
@@ -52,6 +52,55 @@ class PostgresEncounterRepository(EncounterRepository):
         result = await self.session.execute(stmt)
         orm = result.scalars().first()
         return self._to_domain(orm) if orm else None
+
+    async def get_any_by_booking_id(self, booking_id: UUID) -> Optional[ClinicalEncounter]:
+        stmt = (
+            select(ClinicalEncounterORM)
+            .where(ClinicalEncounterORM.booking_id == booking_id)
+            .order_by(ClinicalEncounterORM.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        orm = result.scalars().first()
+        return self._to_domain(orm) if orm else None
+
+    async def get_unsigned_encounters_by_clinician(
+        self, clinician_id: Optional[UUID], limit: int = 50
+    ) -> List[dict]:
+        stmt = (
+            select(
+                ClinicalEncounterORM,
+                PatientORM.first_name,
+                PatientORM.last_name,
+            )
+            .join(PatientORM, ClinicalEncounterORM.patient_id == PatientORM.id)
+            .outerjoin(
+                ClinicalNoteORM,
+                and_(
+                    ClinicalNoteORM.encounter_id == ClinicalEncounterORM.id,
+                    ClinicalNoteORM.is_current == True,
+                ),
+            )
+            .where(
+                ClinicalEncounterORM.status != "cancelled",
+                or_(
+                    ClinicalNoteORM.id == None,
+                    ClinicalNoteORM.is_signed == False,
+                ),
+            )
+        )
+        if clinician_id:
+            stmt = stmt.where(ClinicalEncounterORM.clinician_id == clinician_id)
+        stmt = stmt.order_by(ClinicalEncounterORM.created_at.desc()).limit(limit)
+
+        result = await self.session.execute(stmt)
+        rows = result.all()
+        return [
+            {
+                "encounter": self._to_domain(row[0]),
+                "patient_name": f"{row[1]} {row[2]}".strip(),
+            }
+            for row in rows
+        ]
 
     async def list_by_patient_id(self, patient_id: UUID, limit: int = 50) -> List[ClinicalEncounter]:
         stmt = (

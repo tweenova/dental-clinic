@@ -8,11 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.application.services.announcement_service import AnnouncementService
 from app.application.services.appointment_service import AppointmentService
 from app.application.services.auth_service import AuthService
+from app.application.services.availability_service import AvailabilityService
+from app.application.services.booking_settings_service import BookingSettingsService
 from app.application.services.cms_service import CmsService
 from app.application.services.dental_chart_service import DentalChartService
 from app.application.services.doctor_service import DoctorService
 from app.application.services.clinical_note_service import ClinicalNoteService
 from app.application.services.encounter_service import EncounterService
+from app.application.services.medical_alert_service import MedicalAlertService
 from app.application.services.organization_service import OrganizationService
 from app.application.services.reception_service import ReceptionService
 from app.application.services.service_service import ServiceService
@@ -23,12 +26,14 @@ from app.domain.models.user import User, UserRole
 from app.domain.repositories.announcement_repo import AnnouncementRepository
 from app.domain.repositories.appointment_repo import AppointmentRepository
 from app.domain.repositories.booking_repo import BookingRepository
+from app.domain.repositories.booking_settings_repo import BookingSettingsRepository
 from app.domain.repositories.clinical_note_repo import ClinicalNoteRepository
 from app.domain.repositories.cms_repo import CmsRepository
 from app.domain.repositories.dental_chart_repo import DentalChartRepository
 from app.domain.repositories.dental_procedure_repo import DentalProcedureRepository
 from app.domain.repositories.encounter_repo import EncounterRepository
 from app.domain.repositories.lead_repo import LeadRepository
+from app.domain.repositories.medical_alert_repo import MedicalAlertRepository
 from app.domain.repositories.message_repo import MessageRepository
 from app.domain.repositories.organization_repo import LocationRepository, OrganizationRepository
 from app.domain.repositories.patient_repo import PatientRepository
@@ -40,11 +45,14 @@ from app.domain.repositories.user_repo import (
     UserRepository,
     UserSessionRepository,
 )
+from app.domain.repositories.visit_payment_repo import VisitPaymentRepository
 from app.domain.services.storage_service import StorageService
 from app.infrastructure.repositories.postgres_activity_repo import PostgresActivityLogRepository
 from app.infrastructure.repositories.postgres_announcement_repo import PostgresAnnouncementRepository
+from app.infrastructure.repositories.postgres_medical_alert_repo import PostgresMedicalAlertRepository
 from app.infrastructure.repositories.postgres_appointment_repo import PostgresAppointmentRepository
 from app.infrastructure.repositories.postgres_booking_repo import PostgresBookingRepository
+from app.infrastructure.repositories.postgres_booking_settings_repo import PostgresBookingSettingsRepository
 from app.infrastructure.repositories.postgres_clinical_note_repo import PostgresClinicalNoteRepository
 from app.infrastructure.repositories.postgres_cms_repo import PostgresCmsRepository
 from app.infrastructure.repositories.postgres_dental_chart_repo import PostgresDentalChartRepository
@@ -65,6 +73,7 @@ from app.infrastructure.repositories.postgres_user_repo import (
     PostgresUserRepository,
     PostgresUserSessionRepository,
 )
+from app.infrastructure.repositories.postgres_visit_payment_repo import PostgresVisitPaymentRepository
 from app.infrastructure.storage.local_storage import LocalStorageService
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -138,10 +147,22 @@ def get_booking_repository(
     return PostgresBookingRepository(session)
 
 
+def get_activity_log_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> PostgresActivityLogRepository:
+    return PostgresActivityLogRepository(session)
+
+
 def get_patient_repository(
     session: AsyncSession = Depends(get_db_session),
 ) -> PatientRepository:
     return PostgresPatientRepository(session)
+
+
+def get_medical_alert_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> MedicalAlertRepository:
+    return PostgresMedicalAlertRepository(session)
 
 
 def get_task_repository(
@@ -162,8 +183,30 @@ def get_message_repository(
     return PostgresMessageRepository(session)
 
 
+def get_booking_settings_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> BookingSettingsRepository:
+    return PostgresBookingSettingsRepository(session)
+
+
 def get_storage_service() -> StorageService:
     return LocalStorageService()
+
+
+def get_availability_service(
+    repo: BookingSettingsRepository = Depends(get_booking_settings_repository),
+    session: AsyncSession = Depends(get_db_session),
+) -> AvailabilityService:
+    return AvailabilityService(
+        booking_settings_repo=repo,
+        session=session,
+    )
+
+
+def get_visit_payment_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> VisitPaymentRepository:
+    return PostgresVisitPaymentRepository(session)
 
 
 # --- Application Services ---
@@ -172,8 +215,18 @@ def get_appointment_service(
     repository: AppointmentRepository = Depends(get_appointment_repository),
     booking_repo: BookingRepository = Depends(get_booking_repository),
     patient_repo: PatientRepository = Depends(get_patient_repository),
+    booking_settings_repo: BookingSettingsRepository = Depends(get_booking_settings_repository),
+    availability_service: AvailabilityService = Depends(get_availability_service),
+    session: AsyncSession = Depends(get_db_session),
 ) -> AppointmentService:
-    return AppointmentService(repository, booking_repo, patient_repo)
+    return AppointmentService(
+        repository,
+        booking_repo,
+        patient_repo,
+        booking_settings_repo,
+        availability_service,
+        session=session,
+    )
 
 
 def get_auth_service(
@@ -193,8 +246,9 @@ def get_team_service(
 
 def get_service_service(
     service_repo: ServiceRepository = Depends(get_service_repository),
+    booking_settings_repo: BookingSettingsRepository = Depends(get_booking_settings_repository),
 ) -> ServiceService:
-    return ServiceService(service_repo)
+    return ServiceService(service_repo, booking_settings_repo)
 
 
 def get_cms_service(
@@ -223,6 +277,12 @@ def get_reception_service(
     lead_repo: LeadRepository = Depends(get_lead_repository),
     message_repo: MessageRepository = Depends(get_message_repository),
     appointment_repo: AppointmentRepository = Depends(get_appointment_repository),
+    service_repo: ServiceRepository = Depends(get_service_repository),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
+    booking_settings_repo: BookingSettingsRepository = Depends(get_booking_settings_repository),
+    team_repo: TeamMemberRepository = Depends(get_team_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+    payment_repo: VisitPaymentRepository = Depends(get_visit_payment_repository),
 ) -> ReceptionService:
     return ReceptionService(
         booking_repo,
@@ -231,6 +291,12 @@ def get_reception_service(
         lead_repo,
         message_repo,
         appointment_repo,
+        service_repo,
+        activity_repo,
+        booking_settings_repo,
+        team_repo,
+        user_repo,
+        payment_repo,
     )
 
 
@@ -238,6 +304,24 @@ def get_doctor_service(
     booking_repo: BookingRepository = Depends(get_booking_repository),
 ) -> DoctorService:
     return DoctorService(booking_repo)
+
+
+def get_booking_settings_service(
+    repo: BookingSettingsRepository = Depends(get_booking_settings_repository),
+    booking_repo: BookingRepository = Depends(get_booking_repository),
+    task_repo: TaskRepository = Depends(get_task_repository),
+    session: AsyncSession = Depends(get_db_session),
+    org_repo: OrganizationRepository = Depends(get_organization_repository),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
+) -> BookingSettingsService:
+    return BookingSettingsService(
+        repository=repo,
+        booking_repo=booking_repo,
+        task_repo=task_repo,
+        session=session,
+        org_repo=org_repo,
+        activity_repo=activity_repo,
+    )
 
 
 def get_encounter_repository(
@@ -256,12 +340,6 @@ def get_encounter_service(
         patient_repo=patient_repo,
         booking_repo=booking_repo,
     )
-
-
-def get_activity_log_repository(
-    session: AsyncSession = Depends(get_db_session),
-) -> PostgresActivityLogRepository:
-    return PostgresActivityLogRepository(session)
 
 
 def get_clinical_note_repository(
@@ -410,7 +488,25 @@ def require_role(*allowed_roles: str) -> Callable:
     return role_checker
 
 
+def get_medical_alert_service(
+    alert_repo: MedicalAlertRepository = Depends(get_medical_alert_repository),
+    patient_repo: PatientRepository = Depends(get_patient_repository),
+    activity_repo: PostgresActivityLogRepository = Depends(get_activity_log_repository),
+) -> MedicalAlertService:
+    return MedicalAlertService(alert_repo, patient_repo, activity_repo)
+
+
 # Pre-configured role dependencies
 require_admin = require_role("admin", "Platform Owner", "Super Admin")
 require_receptionist = require_role("receptionist", "Receptionist", "admin", "Admin", "Super Admin", "Clinic Branch Manager")
 require_doctor = require_role("doctor", "Doctor", "admin", "Admin", "Super Admin")
+require_doctor_strictly = require_role("doctor", "Doctor")
+
+
+def require_roles(allowed_roles: list) -> Callable:
+    """
+    Dependency checking that current user role is one of the provided roles (supports UserRole enum or str).
+    """
+    role_strings = [r.value if hasattr(r, "value") else str(r) for r in allowed_roles]
+    return require_role(*role_strings)
+

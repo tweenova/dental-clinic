@@ -31,3 +31,26 @@ class MessageRepository(ABC):
     ) -> Tuple[List[Message], int]:
         """Returns filtered message records with pagination."""
         pass
+
+    @abstractmethod
+    async def get_patient_messages(self, patient_id: UUID) -> List[Message]:
+        """Returns communications associated with a patient."""
+        pass
+
+    @abstractmethod
+    async def list_due_reminders(self, as_of: Optional[object] = None, limit: int = 100) -> List[Message]:
+        """Returns scheduled reminder messages that are due for delivery."""
+        pass
+
+    @abstractmethod
+    async def cancel_pending_reminders(self, booking_id: UUID) -> int:
+        """Cancels any pending reminder messages for a booking."""
+        pass
+
+    @abstractmethod
+    async def get_by_booking_and_type(
+        self, booking_id: UUID, reminder_type: str, active_only: bool = True
+    ) -> Optional[Message]:
+        """Finds a reminder message for a booking and specific reminder type."""
+        pass
+

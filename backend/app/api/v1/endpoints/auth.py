@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.api.deps import get_auth_service, get_current_user
 from app.application.dtos.auth_dto import (
+    ChangePasswordRequest,
     LoginRequest,
     LoginResponse,
     TokenRefreshRequest,
@@ -12,6 +13,7 @@ from app.application.dtos.auth_dto import (
 from app.application.services.auth_service import AuthService
 from app.core.config import settings
 from app.core.limiter import limiter
+from app.core.security import hash_password, validate_password_strength, verify_password
 from app.domain.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -50,6 +52,7 @@ def _map_user_response(user: User) -> UserResponse:
         isActive=user.is_active,
         clinicId=user.clinic_id,
         teamMemberId=user.team_member_id,
+        requiresPasswordChange=user.requires_password_change,
         inactivityEnabled=user.inactivity_enabled,
         inactivityTimeoutMinutes=user.inactivity_timeout_minutes,
         inactivityWarningSeconds=user.inactivity_warning_seconds,
@@ -172,3 +175,37 @@ async def update_inactivity_settings(
         warning_seconds=req.inactivityWarningSeconds,
     )
     return _map_user_response(updated_user)
+
+
+@router.post("/change-password")
+async def change_password(
+    req: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """
+    Allows authenticated users to change their own password, satisfying
+    requires_password_change.
+    """
+    if not verify_password(req.oldPassword, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect.",
+        )
+    try:
+        validate_password_strength(req.newPassword)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
+
+    current_user.hashed_password = hash_password(req.newPassword)
+    current_user.requires_password_change = False
+    await auth_service.user_repo.save(current_user)
+
+    # Revoke active sessions upon password change
+    await auth_service.session_repo.revoke_all_for_user(current_user.id)
+    await auth_service.refresh_token_repo.revoke_all_for_user(current_user.id)
+
+    return {"success": True, "message": "Password changed successfully."}

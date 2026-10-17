@@ -15,13 +15,6 @@ const BASE_LEGAL_DOCUMENTS: SearchResult[] = [
     href: "/privacy",
   },
   {
-    id: "leg-hipaa",
-    title: "HIPAA Notice of Privacy Practices",
-    category: "Legal",
-    snippet: "Formal disclosures and procedures under the federal Health Insurance Portability and Accountability Act.",
-    href: "/hipaa",
-  },
-  {
     id: "leg-accessibility",
     title: "Accessibility Statement",
     category: "Legal",

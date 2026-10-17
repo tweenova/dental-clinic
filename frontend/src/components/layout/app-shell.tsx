@@ -32,10 +32,6 @@ export function AppShell({ workspace, children }: AppShellProps) {
     }
   }, [user, isLoading, router]);
 
-  // Close the mobile drawer whenever the route changes.
-  useEffect(() => {
-    setMobileOpen(false);
-  }, []);
 
   if (isLoading) {
     return (

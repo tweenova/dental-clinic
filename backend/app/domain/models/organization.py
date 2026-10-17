@@ -23,6 +23,9 @@ class Organization:
     background_color: Optional[str] = None
     primary_font: Optional[str] = None
     secondary_font: Optional[str] = None
+    currency_code: str = "PKR"
+    currency_symbol: str = "Rs"
+    timezone: str = "Asia/Karachi"
     is_active: bool = True
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

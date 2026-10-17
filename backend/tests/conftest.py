@@ -10,8 +10,11 @@ from app.infrastructure.database.orm_models import Base
 from app.infrastructure.repositories.postgres_user_repo import PostgresUserRepository
 from app.main import app, limiter
 
+import logging
+
 # Disable rate limiting in test suite so fast sequential tests aren't blocked by 429
 limiter.enabled = False
+logging.getLogger("aiosqlite").setLevel(logging.WARNING)
 
 
 @pytest.fixture(scope="session")

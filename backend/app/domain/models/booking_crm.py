@@ -17,25 +17,45 @@ class Patient:
     clinic_id: Optional[UUID] = None
     date_of_birth: Optional[date] = None
     notes: Optional[str] = None
+    medical_history_status: str = "not_asked"  # not_asked | none_known | recorded
     is_active: bool = True
+    file_number: Optional[str] = None
+    guardian_name: Optional[str] = None
+    guardian_phone: Optional[str] = None
+    guardian_relationship: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    emergency_contact_relationship: Optional[str] = None
+    messaging_opt_out: bool = False
+    preferred_channel: str = "sms"  # sms | whatsapp | none
+    id: UUID = field(default_factory=uuid4)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}".strip()
+
+
+@dataclass
+class PatientMedicalAlert:
+    """
+    Pure domain representation of a medical alert (allergy, condition, medication, other).
+    """
+    patient_id: UUID
+    type: str  # allergy | condition | medication | other
+    description: str
+    severity: Optional[str] = None  # mild | moderate | severe | life_threatening
+    recorded_by_user_id: Optional[UUID] = None
+    recorded_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_reviewed_at: Optional[datetime] = None
+    is_active: bool = True
+    is_confirmed: bool = True
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-@dataclass
-class Slot:
-    """
-    Pure domain representation of an appointment operatory time slot.
-    """
-    start_time: datetime
-    end_time: datetime
-    clinic_id: Optional[UUID] = None
-    team_member_id: Optional[UUID] = None
-    is_booked: bool = False
-    is_active: bool = True
-    id: UUID = field(default_factory=uuid4)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -92,6 +112,13 @@ class Booking:
     utm_source: Optional[str] = None
     utm_campaign: Optional[str] = None
     staff_notes: Optional[str] = None
+    arrived_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    cancellation_reason: Optional[str] = None
+    cancelled_by_user_id: Optional[UUID] = None
+    reminded_at: Optional[datetime] = None
+    reminded_by_user_id: Optional[UUID] = None
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -105,6 +132,9 @@ class Task:
     title: str
     clinic_id: Optional[UUID] = None
     assigned_to_user_id: Optional[UUID] = None
+    created_by_user_id: Optional[UUID] = None
+    patient_id: Optional[UUID] = None
+    booking_id: Optional[UUID] = None
     description: Optional[str] = None
     due_date: Optional[datetime] = None
     status: str = "pending"
@@ -122,10 +152,20 @@ class Message:
     content: str
     sender_id: Optional[UUID] = None
     recipient_id: Optional[UUID] = None
+    patient_id: Optional[UUID] = None
     phone: Optional[str] = None
     email: Optional[str] = None
     channel: str = "sms"
-    status: str = "sent"
+    status: str = "logged"
+    booking_id: Optional[UUID] = None
+    delivery_status: str = "simulated"  # "simulated" | "queued" | "sent" | "delivered" | "failed" | "opted_out" | "quiet_hours_held" | "cancelled"
+    error_detail: Optional[str] = None
+    provider: str = "simulated"  # "simulated" | "twilio" | "whatsapp"
+    provider_message_id: Optional[str] = None
+    attempts: int = 0
+    scheduled_for: Optional[datetime] = None
+    sent_at: Optional[datetime] = None
+    reminder_type: Optional[str] = None  # "reminder_24h" | "reminder_2h" | "manual"
     id: UUID = field(default_factory=uuid4)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 

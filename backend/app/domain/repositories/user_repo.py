@@ -21,6 +21,12 @@ class UserRepository(ABC):
         pass
 
     @abstractmethod
+    async def list_users(
+        self, role: Optional[str] = None, is_active: Optional[bool] = None
+    ) -> list[User]:
+        pass
+
+    @abstractmethod
     async def update_inactivity_settings(
         self,
         user_id: UUID,

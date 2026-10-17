@@ -166,21 +166,46 @@ cp .env.example .env
 
 ### Virtual Environment & Dependencies
 
-```bash
-# Using uv (recommended) or standard venv:
-uv venv .venv --python python3.14
-uv pip install -r requirements.txt
-```
+1. **Create and activate the virtual environment**:
+   - **Windows PowerShell**:
+     ```powershell
+     # Using uv (fastest):
+     uv venv .venv --python python3.14
+     .\.venv\Scripts\Activate.ps1
+
+     # Or using standard Python:
+     python -m venv .venv
+     .\.venv\Scripts\Activate.ps1
+     ```
+   - **Windows Command Prompt (cmd.exe)**:
+     ```cmd
+     .\.venv\Scripts\activate.bat
+     ```
+   - **Linux / macOS (bash / zsh)**:
+     ```bash
+     source .venv/bin/activate
+     ```
+
+2. **Install dependencies**:
+   ```powershell
+   # With uv:
+   uv pip install -r requirements.txt
+
+   # Or standard pip (with active venv):
+   pip install -r requirements.txt
+   ```
 
 ### Schema Migrations (Alembic)
 Run migrations to create the schema and all tables:
 
 ```bash
 # Apply pending migrations to reach head:
+alembic upgrade head
+# Or via uv:
 uv run alembic upgrade head
 
 # Verify current revision:
-uv run alembic current
+alembic current
 ```
 
 ### CLI Bootstrap Commands
@@ -189,18 +214,46 @@ To safely initialize the database with baseline clinic data and create an initia
 
 ```bash
 # 1. Seed initial organization, location, core services, clinical director, and FAQs:
-uv run python -m app.cli seed
+python -m app.cli seed
 
 # 2. Safely create or update an administrator account:
-uv run python -m app.cli create-admin --email admin@marlowdental.com --password "YourSecurePassword" --name "Clinic Administrator"
+python -m app.cli create-admin --email admin@marlowdental.com --password "YourSecurePassword" --name "Clinic Administrator"
 ```
 
 ### Running the API Server
 
-```bash
-# Start development server on port 8000
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
+You can start the server using any of the following methods from `E:\dental clinic project\backend`:
+
+- **Using the helper scripts** (auto-activates `.venv`):
+  ```powershell
+  # PowerShell:
+  .\run.ps1
+
+  # Command Prompt / Batch:
+  run.bat
+  ```
+
+- **Using Uvicorn directly** (from activated `.venv`):
+  ```powershell
+  # Canonical package module (recommended):
+  uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
+  # Root proxy module (also supported):
+  uvicorn main:app --reload --host 127.0.0.1 --port 8000
+  ```
+
+- **Using `uv`**:
+  ```powershell
+  uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+  ```
+
+- **Running directly via Python**:
+  ```powershell
+  python main.py
+  # or
+  python app/main.py
+  ```
+
 
 ---
 

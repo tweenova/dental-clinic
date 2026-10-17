@@ -18,9 +18,11 @@ export default function AdminAccountPage() {
 
   useEffect(() => {
     if (user) {
-      setEnabled(user.inactivityEnabled !== false);
-      setTimeoutMinutes(user.inactivityTimeoutMinutes ?? 15);
-      setWarningSeconds(user.inactivityWarningSeconds ?? 60);
+      queueMicrotask(() => {
+        setEnabled(user.inactivityEnabled !== false);
+        setTimeoutMinutes(user.inactivityTimeoutMinutes ?? 15);
+        setWarningSeconds(user.inactivityWarningSeconds ?? 60);
+      });
     }
   }, [user]);
 
@@ -124,7 +126,7 @@ export default function AdminAccountPage() {
             <div className="flex items-center gap-2 text-forest dark:text-emerald-400">
               <Timer className="h-5 w-5" />
               <h2 className="font-display text-lg text-ink font-semibold">
-                Inactivity &amp; HIPAA Auto-Lock
+                Inactivity &amp; Session Auto-Lock
               </h2>
             </div>
             <p className="text-xs text-ink-soft leading-relaxed max-w-xl">

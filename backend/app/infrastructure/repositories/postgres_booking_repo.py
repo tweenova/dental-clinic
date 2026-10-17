@@ -34,6 +34,13 @@ class PostgresBookingRepository(BookingRepository):
             utm_source=entity.utm_source,
             utm_campaign=entity.utm_campaign,
             staff_notes=entity.staff_notes,
+            arrived_at=entity.arrived_at,
+            started_at=entity.started_at,
+            completed_at=entity.completed_at,
+            cancellation_reason=entity.cancellation_reason,
+            cancelled_by_user_id=entity.cancelled_by_user_id,
+            reminded_at=entity.reminded_at,
+            reminded_by_user_id=entity.reminded_by_user_id,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
         )
@@ -58,6 +65,13 @@ class PostgresBookingRepository(BookingRepository):
             utm_source=orm.utm_source,
             utm_campaign=orm.utm_campaign,
             staff_notes=orm.staff_notes,
+            arrived_at=orm.arrived_at,
+            started_at=orm.started_at,
+            completed_at=orm.completed_at,
+            cancellation_reason=orm.cancellation_reason,
+            cancelled_by_user_id=orm.cancelled_by_user_id,
+            reminded_at=orm.reminded_at,
+            reminded_by_user_id=orm.reminded_by_user_id,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
         )
@@ -80,6 +94,13 @@ class PostgresBookingRepository(BookingRepository):
             existing.staff_notes = booking.staff_notes
             existing.utm_source = booking.utm_source
             existing.utm_campaign = booking.utm_campaign
+            existing.arrived_at = booking.arrived_at
+            existing.started_at = booking.started_at
+            existing.completed_at = booking.completed_at
+            existing.cancellation_reason = booking.cancellation_reason
+            existing.cancelled_by_user_id = booking.cancelled_by_user_id
+            existing.reminded_at = booking.reminded_at
+            existing.reminded_by_user_id = booking.reminded_by_user_id
             await self._session.flush()
             await self._session.refresh(existing)
             return self._to_domain(existing)
@@ -107,6 +128,7 @@ class PostgresBookingRepository(BookingRepository):
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
         status: Optional[str] = None,
+        status_in: Optional[List[str]] = None,
         search: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
@@ -129,6 +151,9 @@ class PostgresBookingRepository(BookingRepository):
         if status:
             stmt = stmt.where(BookingORM.status == status)
             count_stmt = count_stmt.where(BookingORM.status == status)
+        elif status_in:
+            stmt = stmt.where(BookingORM.status.in_(status_in))
+            count_stmt = count_stmt.where(BookingORM.status.in_(status_in))
         if search:
             search_pattern = f"%{search.strip()}%"
             filter_expr = or_(

@@ -70,7 +70,14 @@ class EncounterService:
             # If booking is unassigned, assign it to the creating clinician
             if not booking.team_member_id:
                 booking.team_member_id = clinician_id
-                await self.booking_repo.save(booking)
+
+            # When starting an encounter for an arrived booking, auto-transition to in_progress and record started_at
+            if booking.status == "arrived":
+                booking.status = "in_progress"
+                if booking.started_at is None:
+                    booking.started_at = datetime.now(timezone.utc)
+
+            await self.booking_repo.save(booking)
 
         # 3. Validate initial status
         initial_status_str = (dto.status or "in_progress").lower()
@@ -201,4 +208,23 @@ class EncounterService:
             encounter.started_at = now
 
         return await self.encounter_repo.save(encounter)
+
+    async def get_unsigned_encounters(
+        self,
+        current_user_team_member_id: Optional[UUID],
+        is_admin: bool = False,
+    ) -> List[dict]:
+        """
+        Retrieves encounters where the note is unsigned draft or missing for this clinician.
+        """
+        if not is_admin and not current_user_team_member_id:
+            return []
+        effective_clinician = current_user_team_member_id if not is_admin else None
+        return await self.encounter_repo.get_unsigned_encounters_by_clinician(effective_clinician)
+
+    async def get_any_encounter_by_booking(
+        self,
+        booking_id: UUID,
+    ) -> Optional[ClinicalEncounter]:
+        return await self.encounter_repo.get_any_by_booking_id(booking_id)
 

@@ -26,7 +26,17 @@ class PostgresPatientRepository(PatientRepository):
             email=entity.email,
             date_of_birth=entity.date_of_birth,
             notes=entity.notes,
+            medical_history_status=entity.medical_history_status,
             is_active=entity.is_active,
+            file_number=entity.file_number,
+            guardian_name=entity.guardian_name,
+            guardian_phone=entity.guardian_phone,
+            guardian_relationship=entity.guardian_relationship,
+            emergency_contact_name=entity.emergency_contact_name,
+            emergency_contact_phone=entity.emergency_contact_phone,
+            emergency_contact_relationship=entity.emergency_contact_relationship,
+            messaging_opt_out=entity.messaging_opt_out,
+            preferred_channel=getattr(entity, "preferred_channel", "sms") or "sms",
             created_at=entity.created_at,
             updated_at=entity.updated_at,
         )
@@ -43,7 +53,17 @@ class PostgresPatientRepository(PatientRepository):
             email=orm.email,
             date_of_birth=orm.date_of_birth,
             notes=orm.notes,
+            medical_history_status=getattr(orm, "medical_history_status", "not_asked"),
             is_active=orm.is_active,
+            file_number=getattr(orm, "file_number", None),
+            guardian_name=getattr(orm, "guardian_name", None),
+            guardian_phone=getattr(orm, "guardian_phone", None),
+            guardian_relationship=getattr(orm, "guardian_relationship", None),
+            emergency_contact_name=getattr(orm, "emergency_contact_name", None),
+            emergency_contact_phone=getattr(orm, "emergency_contact_phone", None),
+            emergency_contact_relationship=getattr(orm, "emergency_contact_relationship", None),
+            messaging_opt_out=getattr(orm, "messaging_opt_out", False),
+            preferred_channel=getattr(orm, "preferred_channel", "sms") or "sms",
             created_at=orm.created_at,
             updated_at=orm.updated_at,
         )
@@ -58,7 +78,17 @@ class PostgresPatientRepository(PatientRepository):
             existing.clinic_id = patient.clinic_id
             existing.date_of_birth = patient.date_of_birth
             existing.notes = patient.notes
+            existing.medical_history_status = patient.medical_history_status
             existing.is_active = patient.is_active
+            existing.file_number = patient.file_number
+            existing.guardian_name = patient.guardian_name
+            existing.guardian_phone = patient.guardian_phone
+            existing.guardian_relationship = patient.guardian_relationship
+            existing.emergency_contact_name = patient.emergency_contact_name
+            existing.emergency_contact_phone = patient.emergency_contact_phone
+            existing.emergency_contact_relationship = patient.emergency_contact_relationship
+            existing.messaging_opt_out = patient.messaging_opt_out
+            existing.preferred_channel = getattr(patient, "preferred_channel", "sms") or "sms"
             await self._session.flush()
             await self._session.refresh(existing)
             return self._to_domain(existing)
@@ -142,6 +172,7 @@ class PostgresPatientRepository(PatientRepository):
                 PatientORM.last_name.ilike(pat),
                 PatientORM.phone.ilike(pat),
                 PatientORM.email.ilike(pat),
+                PatientORM.file_number.ilike(pat),
             )
             stmt = stmt.where(filter_expr)
             count_stmt = count_stmt.where(filter_expr)
@@ -156,3 +187,30 @@ class PostgresPatientRepository(PatientRepository):
         )
         res = await self._session.execute(stmt)
         return [self._to_domain(r) for r in res.scalars().all()], total
+
+    async def get_next_file_number(self, prefix: str = "MD-") -> str:
+        """Finds the maximum numeric suffix for the prefix and returns the next formatted file number (e.g., MD-0001)."""
+        stmt = select(PatientORM.file_number).where(
+            PatientORM.file_number.like(f"{prefix}%")
+        )
+        res = await self._session.execute(stmt)
+        numbers = res.scalars().all()
+        max_val = 0
+        prefix_len = len(prefix)
+        for num_str in numbers:
+            if num_str and len(num_str) > prefix_len:
+                suffix = num_str[prefix_len:]
+                try:
+                    val = int(suffix)
+                    if val > max_val:
+                        max_val = val
+                except ValueError:
+                    continue
+        return f"{prefix}{max_val + 1:04d}"
+
+    async def get_by_file_number(self, file_number: str) -> Optional[Patient]:
+        stmt = select(PatientORM).where(PatientORM.file_number == file_number.strip())
+        res = await self._session.execute(stmt)
+        orm = res.scalar_one_or_none()
+        return self._to_domain(orm) if orm else None
+

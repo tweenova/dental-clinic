@@ -409,7 +409,11 @@ async def test_cross_clinician_encounter_access_forbidden(doctor_auth, secondary
 
 @pytest.mark.asyncio
 async def test_admin_oversight_access_to_all_encounters(admin_auth, doctor_auth, test_session):
-    """Admin has oversight access to view and update encounters across any clinician."""
+    """Admin has oversight read access to any clinician's encounters (audited).
+
+    Encounter writes (create + status transition) are doctor-only strictly,
+    so admin PATCH on status is denied with 403.
+    """
     client_admin = admin_auth["client"]
     headers_admin = admin_auth["headers"]
     client_doc = doctor_auth["client"]
@@ -426,19 +430,18 @@ async def test_admin_oversight_access_to_all_encounters(admin_auth, doctor_auth,
     )
     enc_id = resp_doc.json()["id"]
 
-    # Admin reads Doctor's encounter
+    # Admin reads Doctor's encounter (audited read access preserved).
     resp_admin_get = await client_admin.get(f"/api/v1/doctor/encounters/{enc_id}", headers=headers_admin)
     assert resp_admin_get.status_code == 200
     assert resp_admin_get.json()["id"] == enc_id
 
-    # Admin updates status
+    # Admin cannot transition status: PATCH status is doctor-only strictly.
     resp_admin_patch = await client_admin.patch(
         f"/api/v1/doctor/encounters/{enc_id}/status",
         json={"status": "completed"},
         headers=headers_admin,
     )
-    assert resp_admin_patch.status_code == 200
-    assert resp_admin_patch.json()["status"] == "completed"
+    assert resp_admin_patch.status_code == 403
 
 
 @pytest.mark.asyncio

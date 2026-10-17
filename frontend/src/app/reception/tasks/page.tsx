@@ -24,13 +24,14 @@ import {
   updateReceptionTask,
 } from "@/lib/api";
 import { useAuth } from "@/components/providers/auth-provider";
+import { TASK_STATUS, isTaskActive, isTaskDone } from "@/lib/statuses";
 
 export default function ReceptionTasksPage() {
   const { accessToken, user } = useAuth();
 
   const [tasks, setTasks] = useState<ReceptionTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("open");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [priorityFilter, setPriorityFilter] = useState("");
 
   // Create Task Modal
@@ -60,7 +61,9 @@ export default function ReceptionTasksPage() {
   };
 
   useEffect(() => {
-    loadTasks();
+    queueMicrotask(() => {
+      loadTasks();
+    });
   }, [statusFilter, priorityFilter, accessToken]);
 
   const handleCreateTask = async (e: React.FormEvent) => {
@@ -89,7 +92,7 @@ export default function ReceptionTasksPage() {
     }
   };
 
-  const handleStatusChange = async (taskId: string, newStatus: "pending" | "open" | "in_progress" | "completed" | "cancelled") => {
+  const handleStatusChange = async (taskId: string, newStatus: string) => {
     try {
       await updateReceptionTask(taskId, { status: newStatus }, accessToken);
       await loadTasks();
@@ -107,7 +110,7 @@ export default function ReceptionTasksPage() {
             Operational Tasks Board
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Front-desk to-do items, patient chart follow-ups, insurance verification, and recalls.
+            Front-desk to-do items, patient chart follow-ups, appointment confirmations, and recalls.
           </p>
         </div>
 
@@ -124,9 +127,10 @@ export default function ReceptionTasksPage() {
       <div className="p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
           {[
-            { id: "open", label: "Open" },
-            { id: "in_progress", label: "In Progress" },
-            { id: "completed", label: "Completed" },
+            { id: "active", label: "Active" },
+            { id: TASK_STATUS.PENDING, label: "Pending" },
+            { id: TASK_STATUS.IN_PROGRESS, label: "In Progress" },
+            { id: TASK_STATUS.DONE, label: "Done" },
             { id: "", label: "All Tasks" },
           ].map((tab) => (
             <button
@@ -185,22 +189,22 @@ export default function ReceptionTasksPage() {
                     onClick={() =>
                       handleStatusChange(
                         task.id,
-                        task.status === "completed" ? "pending" : "completed"
+                        isTaskDone(task.status) ? TASK_STATUS.PENDING : TASK_STATUS.DONE
                       )
                     }
                     className={`mt-0.5 grid h-5 w-5 place-items-center rounded-md border transition-colors cursor-pointer ${
-                      task.status === "completed"
+                      isTaskDone(task.status)
                         ? "bg-primary border-primary text-white"
                         : "border-gray-300 dark:border-gray-700 hover:border-primary"
                     }`}
                   >
-                    {task.status === "completed" && <Check className="h-3.5 w-3.5" />}
+                    {isTaskDone(task.status) && <Check className="h-3.5 w-3.5" />}
                   </button>
 
                   <div className="space-y-1">
                     <p
                       className={`text-xs font-semibold ${
-                        task.status === "completed"
+                        isTaskDone(task.status)
                           ? "line-through text-gray-400 dark:text-gray-500"
                           : "text-gray-900 dark:text-white"
                       }`}
@@ -234,9 +238,18 @@ export default function ReceptionTasksPage() {
                     {task.priority}
                   </span>
 
-                  {task.status !== "completed" && (
+                  {task.status === TASK_STATUS.PENDING && (
                     <button
-                      onClick={() => handleStatusChange(task.id, "completed")}
+                      onClick={() => handleStatusChange(task.id, TASK_STATUS.IN_PROGRESS)}
+                      className="px-2.5 py-1 rounded-full bg-clay/10 text-clay text-[11px] font-medium hover:bg-clay/20 transition-colors cursor-pointer"
+                    >
+                      Start
+                    </button>
+                  )}
+
+                  {!isTaskDone(task.status) && (
+                    <button
+                      onClick={() => handleStatusChange(task.id, TASK_STATUS.DONE)}
                       className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors cursor-pointer"
                     >
                       Done
@@ -271,7 +284,7 @@ export default function ReceptionTasksPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Call patient to verify secondary insurance"
+                  placeholder="e.g. Call patient regarding appointment confirmation"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white focus:border-primary"

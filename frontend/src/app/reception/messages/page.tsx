@@ -44,7 +44,9 @@ export default function ReceptionMessagesPage() {
   };
 
   useEffect(() => {
-    loadMessages();
+    queueMicrotask(() => {
+      loadMessages();
+    });
   }, [channelFilter, accessToken]);
 
   const handlePatientSearch = async (query: string) => {
@@ -90,6 +92,12 @@ export default function ReceptionMessagesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Persistent Disclaimer Banner */}
+      <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-3">
+        <span className="font-semibold uppercase tracking-wider font-mono text-[11px] px-2 py-0.5 rounded bg-amber-200/60 dark:bg-amber-900/60">Notice</span>
+        <span>Internal communication log only. Nothing is delivered to patients from this screen.</span>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -97,7 +105,7 @@ export default function ReceptionMessagesPage() {
             Practice Communications Center
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Log patient outbound messages, staff reminders, SMS records, and internal chart notes.
+            Internal communication log only. Nothing is delivered to patients from this screen.
           </p>
         </div>
 
@@ -106,7 +114,7 @@ export default function ReceptionMessagesPage() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4" />
-          <span>New Message / Log</span>
+          <span>Log Communication</span>
         </button>
       </div>
 
@@ -146,7 +154,7 @@ export default function ReceptionMessagesPage() {
             <p className="text-sm font-semibold text-gray-900 dark:text-white">
               No communication records found
             </p>
-            <p className="text-xs text-gray-500">Click &quot;New Message / Log&quot; to create a log entry.</p>
+            <p className="text-xs text-gray-500">Click &quot;Log Communication&quot; to create a log entry.</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -199,9 +207,14 @@ export default function ReceptionMessagesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
-              <h2 className="text-base font-display font-semibold text-gray-900 dark:text-white">
-                Log Message or Internal Note
-              </h2>
+              <div>
+                <h2 className="text-base font-display font-semibold text-gray-900 dark:text-white">
+                  Log Communication or Internal Note
+                </h2>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  Internal communication log only. Nothing is delivered to patients.
+                </p>
+              </div>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
@@ -314,7 +327,7 @@ export default function ReceptionMessagesPage() {
                   disabled={isSending}
                   className="px-4 py-2 rounded-full bg-primary text-white font-semibold hover:bg-primary/90 cursor-pointer transition-colors"
                 >
-                  {isSending ? "Saving..." : "Save Message"}
+                  {isSending ? "Saving..." : "Save Log Entry"}
                 </button>
               </div>
             </form>

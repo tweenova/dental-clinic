@@ -20,6 +20,9 @@ class OrganizationResponse(BaseModel):
     backgroundColor: Optional[str] = None
     primaryFont: Optional[str] = None
     secondaryFont: Optional[str] = None
+    currencyCode: str = "PKR"
+    currencySymbol: str = "Rs"
+    timezone: str = "Asia/Karachi"
     isActive: bool
     createdAt: datetime
     updatedAt: datetime
@@ -42,6 +45,9 @@ class OrganizationUpdateRequest(BaseModel):
     backgroundColor: Optional[str] = None
     primaryFont: Optional[str] = None
     secondaryFont: Optional[str] = None
+    currencyCode: Optional[str] = None
+    currencySymbol: Optional[str] = None
+    timezone: Optional[str] = None
 
     model_config = ConfigDict(extra="ignore")
 

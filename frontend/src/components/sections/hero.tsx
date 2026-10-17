@@ -45,7 +45,7 @@ export function Hero() {
               transition={{ duration: 0.5, delay: 0.08 }}
               className="fluid-h1 tracking-[-0.03em] text-gray-900 dark:text-white font-normal leading-[1.05]"
             >
-              {content.homepage?.heroHeading || "Modern, unhurried dental care for Chicago."}
+              {content.homepage?.heroHeading || "Modern, unhurried dental care."}
             </motion.h1>
 
             {/* Sub-headline description */}

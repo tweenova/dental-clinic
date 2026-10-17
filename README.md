@@ -1,6 +1,6 @@
 # Marlow Dental — Clinic Web Platform & Appointment API
 
-A production-grade web platform, administrative CMS, and appointment scheduling system for **Marlow Dental Medical Complex**, a multidisciplinary dental group founded by Dr. Sarah Marlow, DDS in Lincoln Park, Chicago.
+A production-grade web platform, administrative CMS, and appointment scheduling system for **Marlow Dental Medical Complex**, a multidisciplinary dental group founded by Dr. Sarah Marlow, BDS in Islamabad, Pakistan.
 
 This repository is maintained as a clean, decoupled monorepo containing:
 1. **Frontend**: Next.js 16.3 (React 19, TypeScript, Tailwind CSS v4, Motion 12) App Router web application.

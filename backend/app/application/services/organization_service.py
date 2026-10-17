@@ -31,10 +31,10 @@ class OrganizationService:
             org = Organization(
                 name="Marlow Dental",
                 display_name="Marlow Dental Practice",
-                tagline="Comprehensive, unhurried dental care in Lincoln Park, Chicago.",
+                tagline="Comprehensive, unhurried dental care.",
                 description="Independent dental practice focused on direct doctor continuity and upfront fee transparency.",
                 contact_email="care@marlowdental.com",
-                contact_phone="(312) 555-0147",
+                contact_phone="+92 300 1234567",
                 website_url="https://marlowdental.com",
             )
             org = await self.org_repo.save(org)
@@ -69,6 +69,12 @@ class OrganizationService:
             org.primary_font = req.primaryFont.strip() or None
         if req.secondaryFont is not None:
             org.secondary_font = req.secondaryFont.strip() or None
+        if req.currencyCode is not None:
+            org.currency_code = req.currencyCode.strip() or "PKR"
+        if req.currencySymbol is not None:
+            org.currency_symbol = req.currencySymbol.strip() or "Rs"
+        if req.timezone is not None:
+            org.timezone = req.timezone.strip() or "Asia/Karachi"
 
         org.updated_at = datetime.now(timezone.utc)
         return await self.org_repo.save(org)

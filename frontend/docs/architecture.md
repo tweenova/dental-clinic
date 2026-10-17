@@ -40,7 +40,6 @@ dental-clinic-project/
 │   │   │   │   ├── layout.tsx    # Dedicated metadata for booking route
 │   │   │   │   └── page.tsx      # URL-synced multi-step booking wizard (dynamic services)
 │   │   │   ├── privacy/page.tsx  # Privacy policy
-│   │   │   ├── hipaa/page.tsx    # HIPAA notice of privacy practices
 │   │   │   ├── accessibility/page.tsx # Physical & digital accessibility statement
 │   │   │   └── terms/page.tsx    # Terms of service & cancellation rules
 │   │   ├── components/
@@ -54,7 +53,7 @@ dental-clinic-project/
 │   │       ├── api.ts            # Single API boundary for FastAPI backend (auth, appointments, CMS)
 │   │       ├── search-index.ts   # Client search index over actual static content
 │   │       ├── utm.ts            # UTM parameter preservation utility
-│   │       └── utils.ts          # Shared styling (cn) and Chicago timezone calculator
+│   │       └── utils.ts          # Shared styling (cn) and local timezone calculator
 │   └── docs/                     # Frontend architectural documentation
 └── backend/                      # Backend application (FastAPI + PostgreSQL)
     ├── alembic/                  # Database migration scripts & env.py

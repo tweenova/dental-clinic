@@ -28,7 +28,6 @@
   - Implemented real dark mode toggle with persistent preference and system sync.
   - Built real structured compliance pages:
     - `/privacy` (labeled for legal review)
-    - `/hipaa` (labeled for legal review)
     - `/accessibility` (physical and digital accommodations)
     - `/terms` (labeled for legal review)
   - Added `error.tsx` (calm, non-alarming route error boundary) and `not-found.tsx` (custom 404).
@@ -98,7 +97,7 @@
   - Replaced solo-dentist layout with scalable multi-doctor medical group presentation (`Doctor.tsx` rendering Clinical Director profile alongside multi-doctor clinical team roster).
   - Implemented multi-location selector tabs in `Visit.tsx` dynamically presenting address, phone, email, hours, and navigation maps per facility.
   - Built dynamic client search index transformation layer without stale hardcoded arrays.
-  - Built reusable `LegalContactBox` across legal pages (`/privacy`, `/terms`, `/hipaa`, `/accessibility`, `404`, `500`) dynamically referencing clinic officer contacts.
+  - Built reusable `LegalContactBox` across legal pages (`/privacy`, `/terms`, `/accessibility`, `404`, `500`) dynamically referencing clinic officer contacts.
   - Verified backend test suite with 32 passing automated tests (100% pass rate).
   - Verified frontend production build with 21 static and dynamic routes compiled without errors.
 

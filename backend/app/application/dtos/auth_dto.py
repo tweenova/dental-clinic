@@ -28,11 +28,20 @@ class UserResponse(BaseModel):
     isActive: bool
     clinicId: Optional[UUID] = None
     teamMemberId: Optional[UUID] = None
+    requiresPasswordChange: bool = False
     inactivityEnabled: bool = True
     inactivityTimeoutMinutes: int = 15
     inactivityWarningSeconds: int = 60
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class ChangePasswordRequest(BaseModel):
+    """Schema for authenticated password change."""
+    oldPassword: str
+    newPassword: str
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class UpdateInactivitySettingsRequest(BaseModel):

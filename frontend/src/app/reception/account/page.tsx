@@ -53,7 +53,7 @@ export default function ReceptionAccountPage() {
           Staff Account & Session Security
         </h1>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          Review your front-office credentials, assigned clinic scope, and HIPAA session security settings.
+          Review your front-office credentials, assigned clinic scope, and workstation session security settings.
         </p>
       </div>
 
@@ -134,7 +134,7 @@ export default function ReceptionAccountPage() {
         </div>
       </div>
 
-      {/* HIPAA Inactivity & Session Preferences */}
+      {/* Session Inactivity Preferences */}
       <div className="p-6 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xs space-y-4">
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
@@ -142,10 +142,10 @@ export default function ReceptionAccountPage() {
           </div>
           <div>
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-              HIPAA Session Inactivity Timeout
+              Workstation Session Timeout
             </h2>
             <p className="text-[11px] text-gray-500">
-              Automatic screen lock after a period of workstation inactivity to protect PHI.
+              Automatic screen lock after a period of workstation inactivity to protect patient privacy.
             </p>
           </div>
         </div>

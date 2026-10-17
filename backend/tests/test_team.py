@@ -34,7 +34,7 @@ async def test_admin_team_lifecycle(client_with_db: AsyncClient, test_session: A
         "education": "DDS, Northwestern Dental School",
         "credentials": "DDS",
         "licenseNumber": "#019.034812",
-        "licenseState": "Illinois",
+        "licenseState": "Active",
         "displayOrder": 1,
         "isActive": True,
     }

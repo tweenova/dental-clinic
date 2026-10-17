@@ -1,19 +1,31 @@
-from typing import List
-from fastapi import APIRouter, Depends
+from datetime import date, datetime
+from typing import List, Optional
+from uuid import UUID
+from zoneinfo import ZoneInfo
+from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import (
     get_announcement_service,
+    get_availability_service,
+    get_booking_settings_service,
     get_cms_service,
     get_organization_service,
     get_service_service,
     get_team_service,
 )
 from app.application.dtos.announcement_dto import AnnouncementResponse
+from app.application.dtos.booking_settings_dto import (
+    PublicAvailabilityResponse,
+    PublicBookingStatusResponse,
+    WorkingHoursDto,
+)
+from app.application.services.availability_service import AvailabilityService
 from app.application.dtos.cms_dto import FaqResponse, PublicCmsResponse
 from app.application.dtos.organization_dto import LocationResponse, OrganizationResponse
 from app.application.dtos.service_dto import ServiceResponse
 from app.application.dtos.team_dto import TeamMemberResponse
 from app.application.services.announcement_service import AnnouncementService
+from app.application.services.booking_settings_service import BookingSettingsService
 from app.application.services.cms_service import CmsService
 from app.application.services.organization_service import OrganizationService
 from app.application.services.service_service import ServiceService
@@ -53,6 +65,8 @@ async def get_public_services(
             isHighlighted=s.is_highlighted,
             isActive=s.is_active,
             isPublic=s.is_public,
+            bookableOnline=getattr(s, "bookable_online", True),
+            bufferMinutes=getattr(s, "buffer_minutes", 0),
             createdAt=s.created_at,
             updatedAt=s.updated_at,
         )
@@ -148,7 +162,7 @@ async def get_public_faqs(
 async def get_public_organization(
     org_service: OrganizationService = Depends(get_organization_service),
 ) -> OrganizationResponse:
-    """Returns top-level practice organization details including branding and dynamic theming."""
+    """Returns top-level practice organization details including branding, currency, and dynamic theming."""
     org = await org_service.get_organization()
     return OrganizationResponse(
         id=org.id,
@@ -165,10 +179,67 @@ async def get_public_organization(
         backgroundColor=org.background_color,
         primaryFont=org.primary_font,
         secondaryFont=org.secondary_font,
+        currencyCode=org.currency_code or "PKR",
+        currencySymbol=org.currency_symbol or "Rs",
+        timezone=org.timezone or "Asia/Karachi",
         isActive=org.is_active,
         createdAt=org.created_at,
         updatedAt=org.updated_at,
     )
+
+
+@router.get("/booking-status", response_model=PublicBookingStatusResponse)
+async def get_public_booking_status(
+    booking_settings_service: BookingSettingsService = Depends(get_booking_settings_service),
+) -> PublicBookingStatusResponse:
+    """Returns current booking availability mode, notice message, and clinic phone without personal data."""
+    return await booking_settings_service.get_public_booking_status()
+
+
+@router.get("/working-hours", response_model=List[WorkingHoursDto])
+async def get_public_working_hours(
+    booking_settings_service: BookingSettingsService = Depends(get_booking_settings_service),
+) -> List[WorkingHoursDto]:
+    """Returns single source of truth clinic operating hours across all 7 days of the week."""
+    return await booking_settings_service.get_public_working_hours()
+
+
+@router.get("/booking-schedule")
+async def get_public_booking_schedule(
+    booking_settings_service: BookingSettingsService = Depends(get_booking_settings_service),
+):
+    """Consolidated schedule configuration for date-pickers: working hours, closures, and advance window."""
+    return await booking_settings_service.get_public_schedule()
+
+
+@router.get("/availability", response_model=PublicAvailabilityResponse)
+async def get_public_availability(
+    date: Optional[date] = Query(None, description="Requested booking date (YYYY-MM-DD)"),
+    serviceId: Optional[str] = Query(None, description="Optional service ID or slug"),
+    teamMemberId: Optional[UUID] = Query(None, description="Optional clinician ID"),
+    avail_service: AvailabilityService = Depends(get_availability_service),
+) -> PublicAvailabilityResponse:
+    """
+    Computes real-time available booking slots based on clinic working hours,
+    breaks, planned closures, approved clinician leaves, service durations and buffers,
+    lead times, advance booking windows, and existing bookings in Asia/Karachi timezone.
+    Never exposes personal patient or doctor information.
+    """
+    target_date = date or datetime.now(ZoneInfo("Asia/Karachi")).date()
+    slots = await avail_service.get_available_slots(
+        target_date=target_date,
+        service_id=serviceId,
+        team_member_id=teamMemberId,
+    )
+    return PublicAvailabilityResponse(
+        date=target_date,
+        serviceId=serviceId,
+        teamMemberId=teamMemberId,
+        timezone="Asia/Karachi",
+        slots=slots,
+    )
+
+
 
 
 @router.get("/announcements", response_model=List[AnnouncementResponse])

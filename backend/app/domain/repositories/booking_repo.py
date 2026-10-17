@@ -34,6 +34,7 @@ class BookingRepository(ABC):
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
         status: Optional[str] = None,
+        status_in: Optional[List[str]] = None,
         search: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,

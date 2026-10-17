@@ -7,13 +7,19 @@ from fastapi import HTTPException, status
 from app.application.dtos.service_dto import ServiceCreateRequest, ServiceUpdateRequest
 from app.domain.models.service import Service
 from app.domain.repositories.service_repo import ServiceRepository
+from app.domain.repositories.booking_settings_repo import BookingSettingsRepository
 
 
 class ServiceService:
     """Orchestrates dental service and procedure catalog operations."""
 
-    def __init__(self, service_repo: ServiceRepository):
+    def __init__(
+        self,
+        service_repo: ServiceRepository,
+        booking_settings_repo: Optional[BookingSettingsRepository] = None,
+    ):
         self.service_repo = service_repo
+        self.booking_settings_repo = booking_settings_repo
 
     async def list_services(self, include_inactive: bool = False, public_only: bool = False) -> List[Service]:
         return await self.service_repo.list_all(include_inactive=include_inactive, public_only=public_only)
@@ -26,6 +32,12 @@ class ServiceService:
                 detail="Service not found.",
             )
         return svc
+
+    async def get_provider_ids(self, service_id: UUID) -> List[UUID]:
+        if not self.booking_settings_repo:
+            return []
+        links = await self.booking_settings_repo.list_service_providers(service_id=service_id)
+        return [l.team_member_id for l in links]
 
     async def get_by_slug(self, slug: str) -> Optional[Service]:
         return await self.service_repo.get_by_slug(slug)
@@ -50,12 +62,18 @@ class ServiceService:
             code=req.code.strip() if req.code else None,
             insurance_note=req.insuranceNote.strip() if req.insuranceNote else None,
             recommended_interval=req.recommendedInterval.strip() if req.recommendedInterval else None,
+            recall_interval_days=req.recallIntervalDays,
             display_order=req.displayOrder,
             is_highlighted=req.isHighlighted,
             is_public=req.isPublic,
             is_active=req.isActive,
+            bookable_online=req.bookableOnline,
+            buffer_minutes=req.bufferMinutes,
         )
-        return await self.service_repo.save(svc)
+        saved = await self.service_repo.save(svc)
+        if req.providerIds is not None and self.booking_settings_repo:
+            await self.booking_settings_repo.set_service_providers(saved.id, req.providerIds)
+        return saved
 
     async def update_service(self, service_id: UUID, req: ServiceUpdateRequest) -> Service:
         svc = await self.get_service(service_id)
@@ -89,6 +107,8 @@ class ServiceService:
             svc.insurance_note = req.insuranceNote.strip() or None
         if req.recommendedInterval is not None:
             svc.recommended_interval = req.recommendedInterval.strip() or None
+        if req.recallIntervalDays is not None:
+            svc.recall_interval_days = req.recallIntervalDays
         if req.displayOrder is not None:
             svc.display_order = req.displayOrder
         if req.isHighlighted is not None:
@@ -97,9 +117,16 @@ class ServiceService:
             svc.is_public = req.isPublic
         if req.isActive is not None:
             svc.is_active = req.isActive
+        if req.bookableOnline is not None:
+            svc.bookable_online = req.bookableOnline
+        if req.bufferMinutes is not None:
+            svc.buffer_minutes = req.bufferMinutes
 
         svc.updated_at = datetime.now(timezone.utc)
-        return await self.service_repo.save(svc)
+        saved = await self.service_repo.save(svc)
+        if req.providerIds is not None and self.booking_settings_repo:
+            await self.booking_settings_repo.set_service_providers(saved.id, req.providerIds)
+        return saved
 
     async def set_service_status(self, service_id: UUID, is_active: bool) -> Service:
         svc = await self.get_service(service_id)

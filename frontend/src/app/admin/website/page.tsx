@@ -22,6 +22,7 @@ import {
   adminCreateFaq,
   adminGetCmsSection,
   adminGetFaqs,
+  adminReorderFaqs,
   adminToggleFaqStatus,
   adminUpdateCmsSection,
   adminUpdateFaq,
@@ -166,6 +167,23 @@ export default function AdminWebsitePage() {
     }
   };
 
+  const handleMoveFaq = async (index: number, direction: -1 | 1) => {
+    if (!accessToken) return;
+    const target = index + direction;
+    if (target < 0 || target >= faqs.length) return;
+    const ordered = [...faqs];
+    const [moved] = ordered.splice(index, 1);
+    ordered.splice(target, 0, moved);
+    try {
+      await adminReorderFaqs(ordered.map((f) => f.id), accessToken);
+      setFaqs(ordered);
+      setSaveSuccess("FAQ display order saved.");
+      setTimeout(() => setSaveSuccess(null), 3000);
+    } catch (err: any) {
+      setSaveError(err.message || "Failed to reorder FAQs.");
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Page Title */}
@@ -283,7 +301,7 @@ export default function AdminWebsitePage() {
                   label="Physical Address"
                   value={generalData.address || ""}
                   onChange={(e) => setGeneralData({ ...generalData, address: e.target.value })}
-                  placeholder="214 Alder Street, Suite 3, Chicago, IL 60614"
+                  placeholder="e.g. Clinic Address"
                 />
               </div>
 
@@ -461,9 +479,17 @@ export default function AdminWebsitePage() {
 
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="contact-hours" className="block text-xs font-medium text-ink mb-1.5">
-                    Operating Hours Summary
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="contact-hours" className="block text-xs font-medium text-ink">
+                      Operating Hours Summary (Legacy Fallback)
+                    </label>
+                    <a
+                      href="/admin/booking"
+                      className="text-[11px] text-forest hover:underline font-medium"
+                    >
+                      Edit single-source hours in Booking Settings →
+                    </a>
+                  </div>
                   <textarea
                     id="contact-hours"
                     rows={3}
@@ -471,6 +497,9 @@ export default function AdminWebsitePage() {
                     onChange={(e) => setContactData({ ...contactData, hoursSummary: e.target.value })}
                     className="w-full rounded-[var(--radius-card)] border border-line bg-bone px-3.5 py-2.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-forest"
                   />
+                  <p className="text-[11px] text-ink-soft/70 mt-1">
+                    Standard clinic hours and closures are managed in <a href="/admin/booking" className="underline text-forest font-medium">Booking Settings</a> as the single source of truth. This field is preserved only as a fallback.
+                  </p>
                 </div>
                 <TextField
                   id="contact-transit"
@@ -531,7 +560,7 @@ export default function AdminWebsitePage() {
                         className="w-full rounded-[var(--radius-card)] border border-line bg-bone px-3.5 py-2 text-xs text-ink"
                       >
                         <option value="pricing">Pricing &amp; Estimates</option>
-                        <option value="insurance">Insurance &amp; PPO</option>
+                        <option value="general">General Information</option>
                         <option value="comfort">Anxiety &amp; Comfort</option>
                         <option value="scheduling">Appointments &amp; Scheduling</option>
                       </select>
@@ -600,6 +629,27 @@ export default function AdminWebsitePage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-0.5 mr-1" role="group" aria-label="Reorder FAQ">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveFaq(faqs.indexOf(faq), -1)}
+                          disabled={faqs.indexOf(faq) === 0}
+                          aria-label={`Move FAQ up`}
+                          className="h-5 w-6 rounded border border-line text-ink-soft hover:text-ink hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed text-[10px] leading-none"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveFaq(faqs.indexOf(faq), 1)}
+                          disabled={faqs.indexOf(faq) === faqs.length - 1}
+                          aria-label={`Move FAQ down`}
+                          className="h-5 w-6 rounded border border-line text-ink-soft hover:text-ink hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed text-[10px] leading-none"
+                        >
+                          ▼
+                        </button>
+                      </div>
+
                       <Button
                         onClick={() => handleToggleFaq(faq.id, faq.isActive !== false)}
                         variant="secondary"

@@ -44,3 +44,14 @@ class PatientRepository(ABC):
     ) -> Tuple[List[Patient], int]:
         """Performs server-side search across name, email, and phone with pagination."""
         pass
+
+    @abstractmethod
+    async def get_next_file_number(self, prefix: str = "MD-") -> str:
+        """Generates the next sequential patient file number for the prefix."""
+        pass
+
+    @abstractmethod
+    async def get_by_file_number(self, file_number: str) -> Optional[Patient]:
+        """Retrieves a patient by unique file number."""
+        pass
+

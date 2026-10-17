@@ -4,13 +4,14 @@ import Link from "next/link";
 import { Phone, Mail, MapPin, ShieldCheck } from "lucide-react";
 import { CopyButton } from "@/components/ui/copy-button";
 import { usePublicContent } from "@/components/providers/public-content-provider";
+import { formatWorkingHoursSchedule } from "@/lib/currency";
 
 /**
  * Renders the site-wide footer with clinic contact information, office hours, links, and legal policies.
  * Dynamically populated from CMS, multi-location records, and clinical leadership data.
  */
 export function Footer() {
-  const { content, primaryLocation, director } = usePublicContent();
+  const { content, primaryLocation, director, workingHours } = usePublicContent();
   const currentYear = new Date().getFullYear();
 
   const practiceName = content.general?.practiceName || "Marlow Dental";
@@ -18,14 +19,14 @@ export function Footer() {
   const firstNamePart = nameParts[0] || "Marlow";
   const restNameParts = nameParts.slice(1).join(" ") || "Dental";
 
-  const phone = content.general?.phone || primaryLocation?.phone || "(312) 555-0147";
+  const phone = content.general?.phone || primaryLocation?.phone || "Clinic Phone";
   const cleanPhone = phone.replace(/[^0-9+]/g, "");
-  const email = content.general?.email || primaryLocation?.email || "care@marlowdental.com";
+  const email = content.general?.email || primaryLocation?.email || "";
 
-  const addressLine1 = primaryLocation?.addressLine1 || "214 Alder Street, Suite 3";
+  const addressLine1 = primaryLocation?.addressLine1 || "Clinic Address";
   const addressLine2 = primaryLocation?.city && primaryLocation?.state
     ? `${primaryLocation.city}, ${primaryLocation.state} ${primaryLocation.postalCode || ""}`
-    : "Chicago, IL 60614";
+    : (primaryLocation?.city || "Practice Location");
 
   const tagline =
     content.footer?.tagline ||
@@ -33,7 +34,7 @@ export function Footer() {
     "Comprehensive, ethical dental care from our dedicated clinical team.";
 
   const licenseText = director?.licenseNumber
-    ? `${director.displayName} · ${director.licenseState || "IL"} License ${director.licenseNumber}`
+    ? `${director.displayName} · License #${director.licenseNumber}`
     : "";
 
   return (
@@ -104,7 +105,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/#faq" className="hover:text-gray-900 dark:hover:text-white transition-colors">
-                  Insurance &amp; Billing
+                  Frequently Asked Questions
                 </Link>
               </li>
               <li>
@@ -139,24 +140,42 @@ export function Footer() {
             <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400 font-semibold">
               Office Hours
             </p>
-            <div className="mt-3 space-y-1.5 text-[13px] text-gray-600 dark:text-gray-400">
-              <div className="flex justify-between border-b border-gray-200 dark:border-gray-800 pb-1">
-                <span>Mon – Thu</span>
-                <span className="font-mono text-gray-900 dark:text-white text-[12px]">8 AM – 6 PM</span>
-              </div>
-              <div className="flex justify-between border-b border-gray-200 dark:border-gray-800 pb-1">
-                <span>Friday</span>
-                <span className="font-mono text-gray-900 dark:text-white text-[12px]">8 AM – 2 PM</span>
-              </div>
-              <div className="flex justify-between border-b border-gray-200 dark:border-gray-800 pb-1">
-                <span>Saturday</span>
-                <span className="font-mono text-gray-900 dark:text-white text-[12px]">9 AM – 1 PM</span>
-              </div>
-              <div className="flex justify-between text-gray-400 dark:text-gray-500">
-                <span>Sunday</span>
-                <span>Closed</span>
-              </div>
-            </div>
+            {(() => {
+              const scheduleLines = formatWorkingHoursSchedule(workingHours);
+              if (scheduleLines.length > 0) {
+                return (
+                  <div className="mt-3 space-y-1.5 text-[13px] text-gray-600 dark:text-gray-400">
+                    {scheduleLines.map((line, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex justify-between ${
+                          idx !== scheduleLines.length - 1 ? "border-b border-gray-200 dark:border-gray-800 pb-1" : ""
+                        } ${line.isClosed ? "text-gray-400 dark:text-gray-500" : ""}`}
+                      >
+                        <span>{line.label}</span>
+                        <span className={line.isClosed ? "" : "font-mono text-gray-900 dark:text-white text-[12px]"}>
+                          {line.timeRange}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              // Fallback to free-text hours only until migrated
+              const fallback = primaryLocation?.hoursInfo || content.contact?.hoursSummary;
+              if (fallback) {
+                return (
+                  <div className="mt-3 space-y-1 text-[13px] text-gray-600 dark:text-gray-400 whitespace-pre-line">
+                    {fallback}
+                  </div>
+                );
+              }
+              return (
+                <div className="mt-3 text-[13px] text-gray-500">
+                  Contact practice reception for current consultation and office hours.
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -173,9 +192,6 @@ export function Footer() {
           <div className="flex items-center gap-4 text-center">
             <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white transition-colors">
               Privacy
-            </Link>
-            <Link href="/hipaa" className="hover:text-gray-900 dark:hover:text-white transition-colors">
-              HIPAA
             </Link>
             <Link href="/accessibility" className="hover:text-gray-900 dark:hover:text-white transition-colors">
               Accessibility

@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Marlow Dental | Independent Dental Practice in Lincoln Park, Chicago";
+export const alt = "Marlow Dental | Comprehensive, Ethical Dental Care";
 export const size = {
   width: 1200,
   height: 630,
@@ -9,7 +9,7 @@ export const contentType = "image/png";
 
 /**
  * Generates a dynamic Open Graph social preview image (1200x630 PNG) at the edge.
- * It renders the practice's brand typography, Lincoln Park location, and core messaging for social cards.
+ * It renders the practice's brand typography and core messaging for social cards.
  */
 export default function Image() {
   return new ImageResponse(
@@ -64,7 +64,7 @@ export default function Image() {
               fontWeight: 600,
             }}
           >
-            Lincoln Park, Chicago · Est. 2014
+            Modern, Ethical Dental Care
           </span>
           <h1
             style={{
@@ -101,8 +101,8 @@ export default function Image() {
             color: "#4F5047",
           }}
         >
-          <span>214 Alder Street, Suite 3, Chicago, IL 60614</span>
-          <span style={{ color: "#1F3D34", fontWeight: 600 }}>(312) 555-0147</span>
+          <span>Marlow Dental Practice Facility</span>
+          <span style={{ color: "#1F3D34", fontWeight: 600 }}>Ethical Patient Care</span>
         </div>
       </div>
     ),

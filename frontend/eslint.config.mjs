@@ -12,7 +12,17 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "seed.js",
+    "repro-error.mjs",
+    "eslint_report.json",
   ]),
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react-hooks/purity": "error",
+      "react-hooks/preserve-manual-memoization": "error",
+    },
+  },
 ]);
 
 export default eslintConfig;

@@ -4,32 +4,49 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { Check, ShieldCheck, Phone, ArrowLeft, ArrowRight } from "lucide-react";
+import {
+  Check,
+  ShieldCheck,
+  Phone,
+  ArrowLeft,
+  ArrowRight,
+  AlertTriangle,
+  Clock,
+  Calendar as CalendarIcon,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { Card } from "@/components/ui/card";
 import SiteHeader from "@/components/layout/site-header";
 import Footer from "@/components/layout/footer";
+import { BookingPausedBanner } from "@/components/booking/booking-paused-banner";
+import { BookingSlotPicker } from "@/components/booking/booking-slot-picker";
 import { getStoredUtmParams } from "@/lib/utm";
-import { submitBookingRequest, BookingPayload, getServices } from "@/lib/api";
+import {
+  submitBookingRequest,
+  BookingPayload,
+  getServices,
+  fetchPublicBookingStatus,
+  fetchPublicBookingSchedule,
+  getPublicAvailability,
+  PublicBookingStatus,
+  BookingScheduleData,
+} from "@/lib/api";
+import { formatPrice } from "@/lib/currency";
 import { usePublicContent } from "@/components/providers/public-content-provider";
-
-const TIME_SLOTS = ["8:30 AM", "10:00 AM", "11:30 AM", "1:30 PM", "3:00 PM", "4:30 PM"];
 
 type WizardStep = 0 | 1 | 2 | 3;
 
 /**
  * Interactive four-step wizard guiding patients through scheduling an appointment.
  *
- * Step 0: Select dental service / reason for visit.
- * Step 1: Choose requested date and time slot.
- * Step 2: Enter contact details, phone, email, and insurance information.
- * Step 3: Review summary, clinic policies, and transmit booking request to the backend.
- *
- * It syncs the current step to the URL search parameters so browser back/forward buttons work naturally.
+ * Enforces emergency pause status on load and before submit, disables public booking
+ * when paused or closed, greys out closed days (Sundays) and closures with short reasons,
+ * and presents prices in Rupees (PKR) without hardcoded dollar signs.
  */
 function BookingWizard() {
-  const { content, primaryLocation } = usePublicContent();
+  const { content, primaryLocation, currency } = usePublicContent();
   const phone = content.general?.phone || primaryLocation?.phone || "(312) 555-0147";
   const cleanPhone = phone.replace(/[^0-9+]/g, "");
   const locationName = primaryLocation?.name || "clinic desk";
@@ -45,28 +62,17 @@ function BookingWizard() {
   const [step, setStep] = useState<WizardStep>(initialStep);
   const [service, setService] = useState<string>(preselectedService || "cleanings-exams");
   const [date, setDate] = useState<string>("");
-  const [time, setTime] = useState<string>("10:00 AM");
+  const [time, setTime] = useState<string>("");
 
-  useEffect(() => {
-    getServices()
-      .then((svcs) => {
-        if (svcs && svcs.length > 0) {
-          const active = svcs.filter((s) => s.isActive !== false);
-          if (active.length > 0) {
-            setServicesOptions(
-              active.map((s) => ({
-                id: s.id,
-                label: s.title,
-                meta: `${s.duration} · cash ${s.cashPrice}`,
-              }))
-            );
-          }
-        }
-      })
-      .catch(() => {
-        setServicesOptions([]);
-      });
-  }, []);
+  // Dynamic slot availability
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
+  const [slotError, setSlotError] = useState<string | null>(null);
+
+  // Booking Availability & Schedule Constraints
+  const [bookingStatus, setBookingStatus] = useState<PublicBookingStatus>({ mode: "open" });
+  const [scheduleData, setScheduleData] = useState<BookingScheduleData | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
 
   const [form, setForm] = useState({
     name: "",
@@ -85,29 +91,156 @@ function BookingWizard() {
     callbackWindow: string;
   } | null>(null);
 
+  // 1. Fetch Emergency Pause Status & Schedule on Load
+  useEffect(() => {
+    Promise.all([
+      fetchPublicBookingStatus().catch(() => ({ mode: "open" as const })),
+      fetchPublicBookingSchedule().catch(() => null),
+    ]).then(([status, schedule]) => {
+      setBookingStatus(status);
+      setScheduleData(schedule);
+      setStatusLoading(false);
+    });
+  }, []);
+
+  // 2. Fetch procedure services with currency-tailored formatting
+  useEffect(() => {
+    getServices()
+      .then((svcs) => {
+        if (svcs && svcs.length > 0) {
+          const active = svcs.filter((s) => s.isActive !== false);
+          if (active.length > 0) {
+            setServicesOptions(
+              active.map((s) => ({
+                id: s.id,
+                label: s.title,
+                meta: `${s.duration} · cash ${formatPrice(s.cashPrice, currency.symbol)}`,
+              }))
+            );
+          }
+        }
+      })
+      .catch(() => {
+        setServicesOptions([]);
+      });
+  }, [currency.symbol]);
+
   // Sync state if URL changes (e.g. user clicks browser back/forward)
   useEffect(() => {
-    if (urlStepParam !== null) {
-      const parsed = Math.min(3, Math.max(0, parseInt(urlStepParam, 10))) as WizardStep;
-      setStep(parsed);
-    }
+    queueMicrotask(() => {
+      if (urlStepParam !== null) {
+        const parsed = Math.min(3, Math.max(0, parseInt(urlStepParam, 10))) as WizardStep;
+        setStep(parsed);
+      }
+    });
   }, [urlStepParam]);
 
   useEffect(() => {
-    if (preselectedService) {
-      setService(preselectedService);
-    }
+    queueMicrotask(() => {
+      if (preselectedService) {
+        setService(preselectedService);
+      }
 
-    // Default appointment date to tomorrow (or Monday if tomorrow is Sunday)
-    const nextDate = new Date();
-    nextDate.setDate(nextDate.getDate() + 1);
-    if (nextDate.getDay() === 0) {
+      // Default appointment date to tomorrow (or next non-Sunday)
+      const nextDate = new Date();
       nextDate.setDate(nextDate.getDate() + 1);
-    }
-    setDate(nextDate.toISOString().split("T")[0]);
+      if (nextDate.getDay() === 0) {
+        nextDate.setDate(nextDate.getDate() + 1);
+      }
+      setDate(nextDate.toISOString().split("T")[0]);
+    });
   }, [preselectedService]);
 
-  /** Updates the active wizard step and records it in the URL query parameters so navigation history works. */
+  /** Checks availability of a given date against advance window, weekly closed days, and calendar closures */
+  const getDateAvailability = (dStr: string) => {
+    if (!dStr) return { available: false, reason: "Please choose an appointment date" };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dStr + "T00:00:00");
+
+    if (target < today) {
+      return { available: false, reason: "Selected date is in the past" };
+    }
+
+    const advanceDays = scheduleData?.advanceBookingDays || 60;
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + advanceDays);
+    if (target > maxDate) {
+      return { available: false, reason: `Exceeds ${advanceDays}-day advance booking window` };
+    }
+
+    // Day of week check: Python dow is 0=Mon..6=Sun. JS getDay() is 0=Sun..6=Sat.
+    const jsDay = target.getDay();
+    const pythonDow = jsDay === 0 ? 6 : jsDay - 1;
+    const closedDays = scheduleData?.closedDays || [6];
+    if (closedDays.includes(pythonDow)) {
+      const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      return { available: false, reason: `Closed: ${dayNames[pythonDow]}s` };
+    }
+
+    // Planned closures check
+    if (scheduleData?.closures && scheduleData.closures.length > 0) {
+      const hitClosure = scheduleData.closures.find(
+        (c) => c.startDate <= dStr && dStr <= c.endDate
+      );
+      if (hitClosure) {
+        return {
+          available: false,
+          reason: `Closed: ${hitClosure.reason}`,
+          message: hitClosure.message,
+        };
+      }
+    }
+
+    return { available: true, reason: "" };
+  };
+
+  // Fetch dynamic available slots from availability engine when date or service changes
+  useEffect(() => {
+    let isCurrent = true;
+    queueMicrotask(() => {
+      if (!date) {
+        setAvailableSlots([]);
+        setTime("");
+        return;
+      }
+
+      const dateCheck = getDateAvailability(date);
+      if (!dateCheck.available) {
+        setAvailableSlots([]);
+        setTime("");
+        return;
+      }
+
+      setLoadingSlots(true);
+      setSlotError(null);
+
+      getPublicAvailability({ date, serviceId: service })
+        .then((data) => {
+          if (!isCurrent) return;
+          const slots = data?.slots || [];
+          setAvailableSlots(slots);
+          setTime((prev) => (slots.includes(prev) ? prev : slots[0] || ""));
+        })
+        .catch(() => {
+          if (!isCurrent) return;
+          setAvailableSlots([]);
+          setTime("");
+          setSlotError("Unable to retrieve available time slots. Please select another date or contact our clinic.");
+        })
+        .finally(() => {
+          if (isCurrent) {
+            setLoadingSlots(false);
+          }
+        });
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [date, service, scheduleData]);
+
+  /** Updates active wizard step */
   const updateStep = (nextStep: WizardStep) => {
     setStep(nextStep);
     const params = new URLSearchParams(searchParams.toString());
@@ -116,7 +249,7 @@ function BookingWizard() {
     router.push(`/book?${params.toString()}`);
   };
 
-  /** Validates a single form field (name, phone, or email) and sets an error message if invalid. */
+  /** Validates a single form field */
   const validateField = (field: string, value: string) => {
     let err = "";
     if (field === "name" && !value.trim()) {
@@ -125,7 +258,7 @@ function BookingWizard() {
     if (field === "phone") {
       const digits = value.replace(/\D/g, "");
       if (digits.length < 10) {
-        err = "Please enter a valid 10-digit telephone number.";
+        err = "Please enter a valid telephone number.";
       }
     }
     if (field === "email") {
@@ -142,7 +275,6 @@ function BookingWizard() {
     validateField(field, value);
   };
 
-  /** Validates all contact fields before allowing the patient to proceed to the review step. */
   const validateAllDetails = () => {
     const isNameValid = validateField("name", form.name);
     const isPhoneValid = validateField("phone", form.phone);
@@ -152,6 +284,10 @@ function BookingWizard() {
   };
 
   const handleNext = () => {
+    if (step === 1) {
+      const dateCheck = getDateAvailability(date);
+      if (!dateCheck.available) return;
+    }
     if (step === 2) {
       if (!validateAllDetails()) return;
     }
@@ -164,15 +300,37 @@ function BookingWizard() {
 
   /**
    * Final appointment request submission handler.
-   * NOTE FOR BACKEND INTEGRATION:
-   * When the FastAPI backend endpoint `POST /api/appointments` is live,
-   * `submitBookingRequest` in src/lib/api.ts will transmit this payload directly.
+   * Checks booking-status right before submit.
+   * If not open, blocks submission with the exact pause message.
    */
   const handleFinalSubmit = async () => {
     setIsSubmitting(true);
     setSubmitError(null);
-    const utms = getStoredUtmParams();
 
+    // Re-verify status immediately before submission to prevent bypassing via stale tabs
+    try {
+      const latestStatus = await fetchPublicBookingStatus();
+      if (latestStatus.mode !== "open") {
+        setBookingStatus(latestStatus);
+        setSubmitError(
+          latestStatus.message ||
+            "Online booking is currently paused. Please call our clinic directly to book."
+        );
+        setIsSubmitting(false);
+        return;
+      }
+    } catch {
+      // Continue to API attempt
+    }
+
+    const dateCheck = getDateAvailability(date);
+    if (!dateCheck.available) {
+      setSubmitError(dateCheck.reason);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const utms = getStoredUtmParams();
     const payload: BookingPayload = {
       serviceId: service,
       preferredDate: date,
@@ -197,26 +355,49 @@ function BookingWizard() {
           ? err.message
           : "Unable to submit your appointment request. Please check your connection or contact our clinic directly.";
       setSubmitError(message);
+      // Refresh available slots in case the selected slot was taken by another user
+      if (date) {
+        getPublicAvailability({ date, serviceId: service })
+          .then((data) => {
+            const slots = data?.slots || [];
+            setAvailableSlots(slots);
+            if (!slots.includes(time)) {
+              setTime(slots[0] || "");
+            }
+          })
+          .catch(() => {});
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const selectedServiceObj = servicesOptions.find((s) => s.id === service);
+  const isBookingPaused = bookingStatus.mode !== "open";
+  const contactPhone = bookingStatus.phone || phone;
+  const cleanContactPhone = contactPhone.replace(/[^0-9+]/g, "");
+
   const todayIso = new Date().toISOString().split("T")[0];
+  const advanceDays = scheduleData?.advanceBookingDays || 60;
+  const maxDateObj = new Date();
+  maxDateObj.setDate(maxDateObj.getDate() + advanceDays);
+  const maxAdvanceIso = maxDateObj.toISOString().split("T")[0];
+
+  const currentDateAvailability = getDateAvailability(date);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col justify-between">
-      {/* Reused SiteHeader with minimal variant */}
-      <SiteHeader variant="minimal" />
+    <div className="min-h-screen bg-bone dark:bg-gray-950 flex flex-col justify-between">
+      <SiteHeader />
 
-      <main id="main-content" className="container-x py-12 sm:py-16 flex-1">
+      <main className="flex-1 container-x py-12 md:py-16">
+        {/* Prominent Emergency Pause Alert Banner when not open */}
+        <BookingPausedBanner status={bookingStatus} fallbackPhone={phone} />
+
         {submittedData ? (
           /* Confirmation Screen */
-          <div className="mx-auto max-w-xl text-center space-y-6">
-            <Card surface="cream" shadow="card" className="p-8 sm:p-10">
-              {/* Restrained stroke checkmark */}
-              <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-forest text-[#FAF7F2] mb-5">
+          <div className="mx-auto max-w-xl text-center">
+            <Card surface="cream" shadow="subtle" className="p-8 sm:p-12">
+              <div className="mx-auto mb-6 grid h-14 w-14 place-items-center rounded-full bg-forest">
                 <svg
                   className="h-7 w-7 text-[#FAF7F2]"
                   viewBox="0 0 24 24"
@@ -239,14 +420,11 @@ function BookingWizard() {
               <h1 className="text-[30px] sm:text-[38px] leading-tight text-ink font-normal">
                 We will call you to confirm.
               </h1>
-
-              <p className="mt-4 text-sm sm:text-base leading-relaxed text-ink-soft">
-                Thank you, <strong className="text-ink">{form.name.split(" ")[0]}</strong>. We have received your request for{" "}
-                <strong className="text-ink">{selectedServiceObj?.label}</strong> on{" "}
-                <strong className="text-ink">{date} at {time}</strong>.
+              <p className="mt-4 text-sm text-ink-soft max-w-md mx-auto">
+                Thank you for choosing Marlow Dental. Our patient coordinator will review our chairside schedule and confirm your reservation within one business hour.
               </p>
 
-              <div className="my-6 rounded-[var(--radius-card)] border border-line bg-bone p-4 text-left text-xs space-y-1.5 font-mono">
+              <div className="my-8 rounded-[var(--radius-card)] border border-line bg-bone p-4 text-left font-mono text-xs space-y-2">
                 <p>
                   <span className="text-ink-soft">Request ID:</span>{" "}
                   <strong className="text-ink">{submittedData.confirmationId}</strong>
@@ -315,7 +493,7 @@ function BookingWizard() {
                       What can we help you with?
                     </h1>
                     <p className="mt-2 text-sm text-ink-soft">
-                      Pick the closest procedure. Dr. Marlow will confirm specifics during your visit.
+                      Pick the closest procedure. Your clinician will confirm specifics during your visit.
                     </p>
                   </div>
 
@@ -357,7 +535,7 @@ function BookingWizard() {
                 </motion.div>
               )}
 
-              {/* Step 1: Date & Time Picker */}
+              {/* Step 1: Date & Time Picker with Closed Day / Closure Engine */}
               {step === 1 && (
                 <motion.div
                   key="step1"
@@ -372,16 +550,16 @@ function BookingWizard() {
                       Pick a day and time.
                     </h1>
                     <p className="mt-2 text-sm text-ink-soft">
-                      We reserve dedicated unhurried time for every patient.
+                      We reserve dedicated unhurried time for every patient. Closed days and planned closures are greyed out.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {/* Date Input with past date floor */}
-                    <div>
+                    {/* Date Input with advance window and closure enforcement */}
+                    <div className="space-y-2">
                       <label
                         htmlFor="booking-date-input"
-                        className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft/80 mb-2"
+                        className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft/80"
                       >
                         Preferred Date
                       </label>
@@ -390,38 +568,40 @@ function BookingWizard() {
                         type="date"
                         value={date}
                         min={todayIso}
+                        max={maxAdvanceIso}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full rounded-[var(--radius-card)] border border-line bg-cream/70 px-4 py-3 text-sm text-ink outline-none focus:border-forest"
+                        className={`w-full rounded-[var(--radius-card)] border px-4 py-3 text-sm text-ink outline-none transition-colors ${
+                          !currentDateAvailability.available
+                            ? "border-amber-400 bg-amber-50/50 dark:bg-amber-950/30"
+                            : "border-line bg-cream/70 focus:border-forest"
+                        }`}
                       />
-                      <p className="mt-1.5 text-[11.5px] text-ink-soft">
-                        Mon to Thu 8 to 6, Fri 8 to 2, Sat 9 to 1.
-                      </p>
+
+                      {/* Closed Reason Display */}
+                      {!currentDateAvailability.available ? (
+                        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/60 p-2.5 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span>{currentDateAvailability.reason}</span>
+                        </div>
+                      ) : (
+                        <p className="text-[11.5px] text-ink-soft">
+                          Standard clinic hours: Mon – Thu 8 AM – 6 PM, Fri 8 AM – 2 PM, Sat 9 AM – 1 PM (Sunday closed).
+                        </p>
+                      )}
                     </div>
 
                     {/* Time Slots */}
                     <div>
                       <label className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft/80 mb-2">
-                        Preferred Time Slot
+                        Preferred Time Slot (12-Hour Asia/Karachi)
                       </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {TIME_SLOTS.map((slot) => {
-                          const isSelected = time === slot;
-                          return (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => setTime(slot)}
-                              className={`rounded-[var(--radius-card)] border py-2.5 text-xs font-mono font-medium transition-all cursor-pointer ${
-                                isSelected
-                                  ? "border-forest bg-forest text-[#FAF7F2]"
-                                  : "border-line bg-cream hover:border-forest/40 text-ink"
-                              }`}
-                            >
-                              {slot}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <BookingSlotPicker
+                        loading={loadingSlots}
+                        slots={availableSlots}
+                        selectedSlot={time}
+                        onSelectSlot={setTime}
+                        error={slotError}
+                      />
                     </div>
                   </div>
 
@@ -430,7 +610,11 @@ function BookingWizard() {
                       <ArrowLeft className="h-4 w-4 mr-1" />
                       <span>Back</span>
                     </Button>
-                    <Button variant="primary" onClick={handleNext}>
+                    <Button
+                      variant="primary"
+                      onClick={handleNext}
+                      disabled={!currentDateAvailability.available || !time || loadingSlots || availableSlots.length === 0}
+                    >
                       <span>Continue to Details</span>
                       <ArrowRight className="h-4 w-4 ml-1" />
                     </Button>
@@ -450,10 +634,10 @@ function BookingWizard() {
                 >
                   <div>
                     <h1 className="text-[28px] sm:text-[34px] leading-tight text-ink font-normal">
-                      A few details.
+                      Who is visiting?
                     </h1>
                     <p className="mt-2 text-sm text-ink-soft">
-                      So Dr. Marlow and the front desk know whom to look for.
+                      We never share patient information. All records are private and protected.
                     </p>
                   </div>
 
@@ -462,11 +646,14 @@ function BookingWizard() {
                       id="patient-name"
                       label="Full Legal Name"
                       value={form.name}
-                      placeholder="e.g. Jane Alvarez"
+                      placeholder="Jane Doe"
                       required
                       error={touched.name ? errors.name : undefined}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      onBlur={(e) => handleBlur("name", e.target.value)}
+                      onChange={(e) => {
+                        setForm({ ...form, name: e.target.value });
+                        if (touched.name) validateField("name", e.target.value);
+                      }}
+                      onBlur={() => handleBlur("name", form.name)}
                     />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -478,10 +665,12 @@ function BookingWizard() {
                         placeholder="(312) 555-0100"
                         required
                         error={touched.phone ? errors.phone : undefined}
-                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                        onBlur={(e) => handleBlur("phone", e.target.value)}
+                        onChange={(e) => {
+                          setForm({ ...form, phone: e.target.value });
+                          if (touched.phone) validateField("phone", e.target.value);
+                        }}
+                        onBlur={() => handleBlur("phone", form.phone)}
                       />
-
                       <TextField
                         id="patient-email"
                         label="Email Address"
@@ -490,13 +679,14 @@ function BookingWizard() {
                         placeholder="jane@example.com"
                         required
                         error={touched.email ? errors.email : undefined}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        onBlur={(e) => handleBlur("email", e.target.value)}
+                        onChange={(e) => {
+                          setForm({ ...form, email: e.target.value });
+                          if (touched.email) validateField("email", e.target.value);
+                        }}
+                        onBlur={() => handleBlur("email", form.email)}
                       />
                     </div>
 
-
-                    {/* Clinical Notes */}
                     <TextField
                       id="patient-notes"
                       label="Anything we should know? (Optional)"
@@ -562,8 +752,8 @@ function BookingWizard() {
                       <strong className="text-ink">{form.email}</strong>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-ink-soft">Payment / Billing:</span>
-                      <strong className="text-ink">Transparent Fee Schedule</strong>
+                      <span className="text-ink-soft">Currency / Fee Schedule:</span>
+                      <strong className="text-ink">Transparent {currency.code} ({currency.symbol}) Fees</strong>
                     </div>
                     {form.notes && (
                       <div className="pt-3 border-t border-line/60 text-xs">
@@ -579,14 +769,15 @@ function BookingWizard() {
                       aria-live="polite"
                       className="rounded-[var(--radius-card)] border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs text-rose-800 dark:text-rose-200 space-y-1.5"
                     >
-                      <p className="font-semibold text-rose-900 dark:text-rose-100">
-                        Could not transmit appointment request
+                      <p className="font-semibold text-rose-900 dark:text-rose-100 flex items-center gap-1.5">
+                        <XCircle className="h-4 w-4 text-rose-600" />
+                        <span>Could not transmit appointment request</span>
                       </p>
                       <p>{submitError}</p>
                       <p className="text-[11px] text-rose-700 dark:text-rose-300">
-                        Please try again, or call our {locationName} directly at{" "}
-                        <a href={`tel:${cleanPhone}`} className="underline font-semibold">
-                          {phone}
+                        Please call our desk directly at{" "}
+                        <a href={`tel:${cleanContactPhone}`} className="underline font-semibold">
+                          {contactPhone}
                         </a>.
                       </p>
                     </div>
@@ -608,8 +799,11 @@ function BookingWizard() {
                       variant="primary"
                       onClick={handleFinalSubmit}
                       isLoading={isSubmitting}
+                      disabled={isBookingPaused || !currentDateAvailability.available}
                     >
-                      <span>Request appointment</span>
+                      <span>
+                        {isBookingPaused ? "Online Booking Paused — Please Call" : "Request appointment"}
+                      </span>
                     </Button>
                   </div>
                 </motion.div>
@@ -625,11 +819,17 @@ function BookingWizard() {
 }
 
 /**
- * Main appointment scheduling page wrapped in React Suspense to handle client search parameters safely.
+ * Main appointment scheduling page wrapped in React Suspense.
  */
 export default function BookPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-bone flex items-center justify-center text-sm text-ink-soft">Loading appointment scheduler...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-bone flex items-center justify-center text-sm text-ink-soft">
+          Loading appointment scheduler...
+        </div>
+      }
+    >
       <BookingWizard />
     </Suspense>
   );

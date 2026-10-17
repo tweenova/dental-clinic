@@ -67,7 +67,7 @@ export function FAQ() {
                   before you schedule.
                 </>
               }
-              description={`Have a specific clinical or insurance question not answered here? Call our ${locationName} directly to speak with our front office coordinator.`}
+              description={`Have a specific clinical or appointment question not answered here? Call our ${locationName} directly to speak with our front office coordinator.`}
             />
 
             <div className="pt-2">

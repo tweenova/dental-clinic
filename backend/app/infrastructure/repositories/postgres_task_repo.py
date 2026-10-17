@@ -19,6 +19,9 @@ class PostgresTaskRepository(TaskRepository):
             id=entity.id,
             clinic_id=entity.clinic_id,
             assigned_to_user_id=entity.assigned_to_user_id,
+            created_by_user_id=entity.created_by_user_id,
+            patient_id=entity.patient_id,
+            booking_id=entity.booking_id,
             title=entity.title,
             description=entity.description,
             due_date=entity.due_date,
@@ -34,6 +37,9 @@ class PostgresTaskRepository(TaskRepository):
             id=orm.id,
             clinic_id=orm.clinic_id,
             assigned_to_user_id=orm.assigned_to_user_id,
+            created_by_user_id=orm.created_by_user_id,
+            patient_id=orm.patient_id,
+            booking_id=orm.booking_id,
             title=orm.title,
             description=orm.description,
             due_date=orm.due_date,
@@ -48,6 +54,9 @@ class PostgresTaskRepository(TaskRepository):
         if existing:
             existing.clinic_id = task.clinic_id
             existing.assigned_to_user_id = task.assigned_to_user_id
+            existing.created_by_user_id = task.created_by_user_id
+            existing.patient_id = task.patient_id
+            existing.booking_id = task.booking_id
             existing.title = task.title
             existing.description = task.description
             existing.due_date = task.due_date
@@ -86,12 +95,26 @@ class PostgresTaskRepository(TaskRepository):
             stmt = stmt.where(TaskORM.assigned_to_user_id == assigned_to_user_id)
             count_stmt = count_stmt.where(TaskORM.assigned_to_user_id == assigned_to_user_id)
         if status:
-            if status in ("open", "pending"):
-                stmt = stmt.where(TaskORM.status.in_(["pending", "open"]))
-                count_stmt = count_stmt.where(TaskORM.status.in_(["pending", "open"]))
-            else:
-                stmt = stmt.where(TaskORM.status == status)
-                count_stmt = count_stmt.where(TaskORM.status == status)
+            raw_tokens = [s.strip().lower() for s in status.split(",") if s.strip()]
+            status_tokens: List[str] = []
+            for token in raw_tokens:
+                if token == "active":
+                    status_tokens.extend(["pending", "in_progress"])
+                elif token == "open":
+                    status_tokens.append("pending")
+                elif token == "completed":
+                    status_tokens.append("done")
+                else:
+                    status_tokens.append(token)
+            seen = set()
+            normalized_statuses = [x for x in status_tokens if not (x in seen or seen.add(x))]
+
+            if len(normalized_statuses) == 1:
+                stmt = stmt.where(TaskORM.status == normalized_statuses[0])
+                count_stmt = count_stmt.where(TaskORM.status == normalized_statuses[0])
+            elif len(normalized_statuses) > 1:
+                stmt = stmt.where(TaskORM.status.in_(normalized_statuses))
+                count_stmt = count_stmt.where(TaskORM.status.in_(normalized_statuses))
         if priority:
             stmt = stmt.where(TaskORM.priority == priority)
             count_stmt = count_stmt.where(TaskORM.priority == priority)
@@ -102,3 +125,72 @@ class PostgresTaskRepository(TaskRepository):
         stmt = stmt.order_by(TaskORM.created_at.desc()).limit(limit).offset(offset)
         res = await self._session.execute(stmt)
         return [self._to_domain(r) for r in res.scalars().all()], total
+
+    async def get_patient_tasks(self, patient_id: UUID) -> List[Task]:
+        from app.infrastructure.database.orm_models import BookingORM
+        from sqlalchemy import or_
+
+        booking_subquery = select(BookingORM.id).where(BookingORM.patient_id == patient_id)
+        stmt = (
+            select(TaskORM)
+            .where(
+                or_(
+                    TaskORM.patient_id == patient_id,
+                    TaskORM.booking_id.in_(booking_subquery),
+                )
+            )
+            .order_by(TaskORM.created_at.desc())
+        )
+        res = await self._session.execute(stmt)
+        return [self._to_domain(r) for r in res.scalars().all()]
+
+    async def list_doctor_tasks(
+        self,
+        user_id: UUID,
+        status: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Tuple[List[Task], int]:
+        from sqlalchemy import or_
+
+        stmt = select(TaskORM).where(
+            or_(
+                TaskORM.assigned_to_user_id == user_id,
+                TaskORM.created_by_user_id == user_id,
+            )
+        )
+        count_stmt = select(func.count(TaskORM.id)).where(
+            or_(
+                TaskORM.assigned_to_user_id == user_id,
+                TaskORM.created_by_user_id == user_id,
+            )
+        )
+
+        if status:
+            raw_tokens = [s.strip().lower() for s in status.split(",") if s.strip()]
+            status_tokens: List[str] = []
+            for token in raw_tokens:
+                if token == "active":
+                    status_tokens.extend(["pending", "in_progress"])
+                elif token == "open":
+                    status_tokens.append("pending")
+                elif token == "completed":
+                    status_tokens.append("done")
+                else:
+                    status_tokens.append(token)
+            seen = set()
+            normalized_statuses = [x for x in status_tokens if not (x in seen or seen.add(x))]
+            if len(normalized_statuses) == 1:
+                stmt = stmt.where(TaskORM.status == normalized_statuses[0])
+                count_stmt = count_stmt.where(TaskORM.status == normalized_statuses[0])
+            elif len(normalized_statuses) > 1:
+                stmt = stmt.where(TaskORM.status.in_(normalized_statuses))
+                count_stmt = count_stmt.where(TaskORM.status.in_(normalized_statuses))
+
+        total_res = await self._session.execute(count_stmt)
+        total = total_res.scalar_one() or 0
+
+        stmt = stmt.order_by(TaskORM.created_at.desc()).limit(limit).offset(offset)
+        res = await self._session.execute(stmt)
+        return [self._to_domain(r) for r in res.scalars().all()], total
+
